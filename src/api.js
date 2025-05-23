@@ -39,48 +39,23 @@ async function performMutation(url, method, data, revalidateKey = null) {
       } else if (url.includes('/auth.php')) {
         mutate(`${API_ENDPOINT}/auth.php`); // Revalidate login status
       } else if (url.includes('/article.php')) {
-        mutate(`${API_ENDPOINT}/article.php`); // Revalidate article list
-        if (url.includes('article_id=')) {
-           mutate(url); // Revalidate specific article
-        }
+        mutate(key => key.startsWith(`${API_ENDPOINT}/article.php`), { revalidate: true });
       } else if (url.includes('/booking.php')) {
-        mutate(`${API_ENDPOINT}/booking.php`); // Revalidate booking list
-         if (url.includes('booking_id=')) {
-           mutate(url); // Revalidate specific booking
-        }
+        mutate(key => key.startsWith(`${API_ENDPOINT}/booking.php`), { revalidate: true });
       } else if (url.includes('/comment.php')) {
-        mutate(`${API_ENDPOINT}/comment.php`); // Revalidate comment list
-         if (url.includes('comment_id=')) {
-           mutate(url); // Revalidate specific comment
-        }
+        mutate(key => key.startsWith(`${API_ENDPOINT}/comment.php`), { revalidate: true });
       } else if (url.includes('/course.php')) {
-        // Default mutate logic for course.php if no specific revalidateKey was provided
-        // This might not be ideal if the mutation URL doesn't contain the necessary params
-        // const urlParams = new URLSearchParams(url.split('?')[1]);
-        // const teacherId = urlParams.get('teacher_id');
-        // if (teacherId) {
-        //   mutate(`${API_ENDPOINT}/course.php?teacher_id=${teacherId}`, { revalidate: true }); // Revalidate course list for specific teacher
-        // } else {
-        //   mutate(`${API_ENDPOINT}/course.php`, { revalidate: true }); // Revalidate general course list
-        // }
-        //  if (url.includes('course_id=')) {
-        //    mutate(url, { revalidate: true }); // Revalidate specific course
-        // }
+        // Course mutations already pass revalidateKey, but for consistency and broader revalidation
+        // if revalidateKey is not explicitly passed, we can use this.
+        // For now, keep it as is, as createCourse and updateCourse handle it.
+        // If a direct mutation to course.php without revalidateKey is added, this would be needed.
+        // mutate(key => key.startsWith(`${API_ENDPOINT}/course.php`), { revalidate: true });
       } else if (url.includes('/enrollment.php')) {
-        mutate(`${API_ENDPOINT}/enrollment.php`); // Revalidate enrollment list
-         if (url.includes('course_id=') || url.includes('user_id=')) {
-           mutate(url); // Revalidate specific enrollment status or user/course lists
-        }
+        mutate(key => key.startsWith(`${API_ENDPOINT}/enrollment.php`), { revalidate: true });
       } else if (url.includes('/file.php')) {
-        mutate(`${API_ENDPOINT}/file.php`); // Revalidate file list
-         if (url.includes('file_id=')) {
-           mutate(url); // Revalidate specific file
-        }
+        mutate(key => key.startsWith(`${API_ENDPOINT}/file.php`), { revalidate: true });
       } else if (url.includes('/permission.php')) {
-        mutate(`${API_ENDPOINT}/permission.php`); // Revalidate permission list
-         if (url.includes('permission_id=')) {
-           mutate(url); // Revalidate specific permission
-        }
+        mutate(key => key.startsWith(`${API_ENDPOINT}/permission.php`), { revalidate: true });
       }
 
 
@@ -175,7 +150,7 @@ export function useBooking(bookingId, teacherId, requesterUserId) {
   } else if (requesterUserId) {
     url += `?requester_user_id=${requesterUserId}`;
   } else {
-     url = `${API_ENDPOINT}/booking.php`;
+    url = `${API_ENDPOINT}/booking.php`;
   }
 
   const { data, error } = useSWR(url, fetcher);
@@ -261,11 +236,12 @@ export function useCourse(courseId, teacherId, publicCourses) {
 // Modified createCourse to accept teacherId and pass the revalidation key
 export async function createCourse(courseData, teacherId) {
   const revalidateKey = teacherId ? `${API_ENDPOINT}/course.php?teacher_id=${teacherId}` : `${API_ENDPOINT}/course.php`;
-  return performMutation(`${API_ENDPOINT}/course.php`, 'POST', courseData, revalidateKey);
+  return await performMutation(`${API_ENDPOINT}/course.php`, 'POST', courseData, revalidateKey);
 }
 
-export async function updateCourse(courseId, courseData) {
-  return performMutation(`${API_ENDPOINT}/course.php?course_id=${courseId}`, 'PUT', courseData);
+export async function updateCourse(courseId, courseData, teacherId) {
+  const revalidateKey = teacherId ? `${API_ENDPOINT}/course.php?teacher_id=${teacherId}` : `${API_ENDPOINT}/course.php`;
+  return await performMutation(`${API_ENDPOINT}/course.php?course_id=${courseId}`, 'PUT', courseData, revalidateKey);
 }
 
 export async function deleteCourse(courseId) {

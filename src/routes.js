@@ -6,6 +6,8 @@ import Profile from './components/Profile';
 import Settings from './components/Settings';
 import CourseList from './components/CourseList';
 import Course from './components/Course';
+import CreateBooking from './components/CreateBooking';
+import BookingList from './components/BookingList'; // Import BookingList
 
 const components = {
   Component1: Component1,
@@ -15,6 +17,8 @@ const components = {
   Settings: Settings,
   CourseList: CourseList,
   Course: Course,
+  CreateBooking: CreateBooking,
+  BookingList: BookingList, // Add BookingList to components object
 };
 
 function renderComponent(activeComponent) {

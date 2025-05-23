@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Button, Form, Alert } from 'react-bootstrap';
 import { useCourse, updateCourse } from '../api';
 
-function EditCourse({ show, onHide, courseId }) {
+function EditCourse({ show, onHide, courseId, teacherId }) {
   const { course, isLoading, isError } = useCourse(courseId); // Fetch course data
   const [courseTitle, setCourseTitle] = useState('');
   const [courseDescription, setCourseDescription] = useState('');
@@ -42,7 +42,7 @@ function EditCourse({ show, onHide, courseId }) {
     };
 
     // Call updateCourse API
-    const result = await updateCourse(courseId, courseData);
+    const result = await updateCourse(courseId, courseData, teacherId);
 
     if (result.success) {
       setUpdateSuccess(true);

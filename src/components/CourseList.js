@@ -71,7 +71,7 @@ function CourseList() {
 
       {/* Edit Course Modal */}
       {editingCourseId && ( // Conditionally render based on editingCourseId
-        <EditCourse show={showEditModal} onHide={handleCloseModal} courseId={editingCourseId} />
+        <EditCourse show={showEditModal} onHide={handleCloseModal} courseId={editingCourseId} teacherId={teacherId} />
       )}
     </div>
   );

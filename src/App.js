@@ -29,6 +29,14 @@ function App() {
       component: 'CourseList',
       display: '課程',
     },
+    {
+      component: 'CreateBooking',
+      display: '預約時間',
+    },
+    {
+      component: 'BookingList',
+      display: '查看預約', // Add entry for BookingList
+    },
   ];
 
   if (isLoginStatusLoading) {

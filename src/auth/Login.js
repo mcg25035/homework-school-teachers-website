@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Container, Row, Col, Card, Form, Button, Alert } from 'react-bootstrap';
 
 function Login({ login }) {
   const [username, setUsername] = useState('');
@@ -15,23 +16,42 @@ function Login({ login }) {
   };
 
   return (
-    <div style={{ minHeight: '100vh' }}>
-      <h1>Login</h1>
-      {error && <div style={{ color: 'red' }}>{error}</div>}
-      <input
-        type="text"
-        placeholder="Username"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-      />
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      <button onClick={handleLogin}>Login</button>
-    </div>
+    <Container className="mt-5">
+      <Row className="justify-content-md-center">
+        <Col xs lg="4">
+          <Card>
+            <Card.Body>
+              <Card.Title className="text-center">Login</Card.Title>
+              {error && <Alert variant="danger">{error}</Alert>}
+              <Form>
+                <Form.Group className="mb-3" controlId="formBasicUsername">
+                  <Form.Label>Username</Form.Label>
+                  <Form.Control
+                    type="text"
+                    placeholder="Enter username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                  />
+                </Form.Group>
+
+                <Form.Group className="mb-3" controlId="formBasicPassword">
+                  <Form.Label>Password</Form.Label>
+                  <Form.Control
+                    type="password"
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </Form.Group>
+                <Button variant="primary" type="button" onClick={handleLogin} className="w-100">
+                  Login
+                </Button>
+              </Form>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+    </Container>
   );
 }
 
