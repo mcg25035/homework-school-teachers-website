@@ -30,11 +30,11 @@ function App() {
       display: '課程',
     },
     {
-      component: 'CreateBooking',
+      component: 'MyBookings',
       display: '預約時間',
     },
     {
-      component: 'BookingList',
+      component: 'TeacherBookings',
       display: '查看預約', // Add entry for BookingList
     },
   ];

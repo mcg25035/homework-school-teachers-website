@@ -2,45 +2,9 @@ import React, { useState } from 'react';
 import useSWR from 'swr';
 import { useBooking, useLoginStatus, updateBooking } from '../api'; // Import updateBooking
 import { Table, Alert, Spinner, Modal, Button, Form } from 'react-bootstrap'; // Import Form
+import { formatBookingDateTime } from '../utils/dateUtils';
 
-// Helper function to format date and time
-const formatBookingDateTime = (startTimeStr, endTimeStr) => {
-  const startDate = new Date(startTimeStr);
-  const endDate = new Date(endTimeStr);
-
-  const startYear = startDate.getFullYear();
-  const startMonth = (startDate.getMonth() + 1).toString().padStart(2, '0');
-  const startDay = startDate.getDate().toString().padStart(2, '0');
-  const startHours = startDate.getHours().toString().padStart(2, '0');
-  const startMinutes = startDate.getMinutes().toString().padStart(2, '0');
-
-  const endYear = endDate.getFullYear();
-  const endMonth = (endDate.getMonth() + 1).toString().padStart(2, '0');
-  const endDay = endDate.getDate().toString().padStart(2, '0');
-  const endHours = endDate.getHours().toString().padStart(2, '0');
-  const endMinutes = endDate.getMinutes().toString().padStart(2, '0');
-
-  const isSameDay = startDate.toDateString() === endDate.toDateString();
-  const isSameYear = startYear === endYear;
-
-  let formattedString = '';
-
-  if (isSameDay) {
-    // 日期 時間-時間 (e.g., 05/23 10:00-11:00 or 2025/05/23 10:00-11:00)
-    formattedString += isSameYear ? `${startMonth}/${startDay}` : `${startYear}/${startMonth}/${startDay}`;
-    formattedString += ` ${startHours}:${startMinutes}-${endHours}:${endMinutes}`;
-  } else {
-    // 日期 時間 - 日期 時間 (e.g., 05/23 10:00 - 05/24 11:00 or 2025/05/23 10:00 - 2025/05/24 11:00)
-    formattedString += isSameYear ? `${startMonth}/${startDay} ${startHours}:${startMinutes}` : `${startYear}/${startMonth}/${startDay} ${startHours}:${startMinutes}`;
-    formattedString += ' - ';
-    formattedString += isSameYear ? `${endMonth}/${endDay} ${endHours}:${endMinutes}` : `${endYear}/${endMonth}/${endDay} ${endHours}:${endMinutes}`;
-  }
-
-  return formattedString;
-};
-
-
-const BookingList = () => {
+const TeacherBookings = () => {
   const { user, isLoggedIn, isLoading: isLoginStatusLoading } = useLoginStatus();
   const teacherId = user ? user.user_id : null;
 
@@ -230,4 +194,4 @@ const BookingList = () => {
   );
 };
 
-export default BookingList;
+export default TeacherBookings;
