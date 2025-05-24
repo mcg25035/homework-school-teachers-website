@@ -16,6 +16,7 @@ import ArticleList from './components/ArticleList';
 import ArticleView from './components/ArticleView';
 import CreateArticle from './components/CreateArticle';
 import EditArticle from './components/EditArticle';
+import TeacherCalendar from './components/TeacherCalendar';
 
 const components = {
   Component1: Component1,
@@ -32,6 +33,7 @@ const components = {
   ArticleView: ArticleView,
   CreateArticle: CreateArticle,
   EditArticle: EditArticle,
+  TeacherCalendar: TeacherCalendar,
 };
 
 // Modified renderComponent to accept and pass props
