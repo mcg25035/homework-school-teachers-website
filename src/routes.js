@@ -1,4 +1,6 @@
 import React from 'react';
+
+// Existing components
 import Component1 from './components/Component1';
 import Component2 from './components/Component2';
 import Component3 from './components/Component3';
@@ -6,8 +8,14 @@ import Profile from './components/Profile';
 import Settings from './components/Settings';
 import CourseList from './components/CourseList';
 import Course from './components/Course';
-import MyBookings from './components/MyBookings'; // Import MyBookings
-import TeacherBookings from './components/TeacherBookings'; // Import TeacherBookings
+import MyBookings from './components/MyBookings';
+import TeacherBookings from './components/TeacherBookings';
+
+// New Article Components
+import ArticleList from './components/ArticleList';
+import ArticleView from './components/ArticleView';
+import CreateArticle from './components/CreateArticle';
+import EditArticle from './components/EditArticle';
 
 const components = {
   Component1: Component1,
@@ -17,13 +25,27 @@ const components = {
   Settings: Settings,
   CourseList: CourseList,
   Course: Course,
-  MyBookings: MyBookings, // Update to MyBookings
-  TeacherBookings: TeacherBookings, // Update to TeacherBookings
+  MyBookings: MyBookings,
+  TeacherBookings: TeacherBookings,
+  // Add new component mappings
+  ArticleList: ArticleList,
+  ArticleView: ArticleView,
+  CreateArticle: CreateArticle,
+  EditArticle: EditArticle,
 };
 
-function renderComponent(activeComponent) {
-  let Component = components[activeComponent] || Component1;
-  return <Component />;
+// Modified renderComponent to accept and pass props
+function renderComponent(componentName, componentProps = {}) {
+  const Component = components[componentName] || components['Component1']; // Fallback to Component1
+
+  if (!Component) {
+    console.error(`Component "${componentName}" not found.`);
+    // You could render a specific "NotFound" component here if you have one
+    return <div>Error: Component "{componentName}" not found.</div>;
+  }
+
+  // Spread the componentProps (which includes user and setActiveComponent from App.js)
+  return <Component {...componentProps} />;
 }
 
 export default renderComponent;
