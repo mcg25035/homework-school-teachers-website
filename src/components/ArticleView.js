@@ -29,7 +29,7 @@ function ArticleView({ articleId, user, setActiveComponent }) {
   if (!article) return <Alert variant="warning">Article not found.</Alert>;
 
 
-  const canManageArticle = user && user.role === 'teacher' && article && user.user_id === article.author_id;
+  const canManageArticle = user && article && user.user_id === article.author_id;
 
   return (
     <Card>

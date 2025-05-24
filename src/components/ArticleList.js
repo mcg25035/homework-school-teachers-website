@@ -12,7 +12,7 @@ function ArticleList({ setActiveComponent, user }) {
   return (
     <div>
       <h2>Articles</h2>
-      {user && user.role === 'teacher' && (
+      {user && (
         <Button 
           variant="primary" 
           className="mb-3" 
