@@ -4,7 +4,7 @@ import { useArticle, useLoginStatus } from '../api';
 import { ListGroup, Button, Alert, Spinner } from 'react-bootstrap';
 
 function ArticleList({ setActiveComponent, user }) {
-  const { articles, isLoading, isError } = useArticle(); // Fetches all articles
+  const { articles, isLoading, isError } = useArticle(null, user ? user.user_id : null);
 
   if (isLoading) return <Spinner animation="border" role="status"><span className="visually-hidden">Loading...</span></Spinner>;
   if (isError) return <Alert variant="danger">Error loading articles. Please try again later.</Alert>;
