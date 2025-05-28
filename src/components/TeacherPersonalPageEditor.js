@@ -15,6 +15,26 @@ Ordered: 1. Item1 2. Item2
 Inline \`code\`, Code block: \`\`\` code \`\`\`
 > Blockquote
 --- (Horizontal Rule)
+
+---
+
+**Using Page Variables:**
+
+You can insert dynamic content from your 'Page Variables' section into your Markdown.
+Use the syntax \`%variable_name%\` where \`variable_name\` is the exact key of the variable you defined (e.g., \`%office_hours%\`, \`%my_custom_link%\`).
+
+These placeholders will be automatically replaced with their corresponding values when your page is viewed.
+
+*Example:*
+If you have a variable:
+- Key: \`course_name\`
+- Value: \`Advanced Web Development\`
+
+And you write in your Markdown:
+\`Welcome to my course: %course_name%!\`
+
+It will be displayed as:
+\`Welcome to my course: Advanced Web Development!\`
 `;
 
 const PREDEFINED_VARIABLES = ['office_hours', 'research_interests', 'contact_email'];
@@ -252,7 +272,7 @@ function TeacherPersonalPageEditor() {
           <h6>Predefined Variables</h6>
           {PREDEFINED_VARIABLES.map(key => (
             <Form.Group as={Row} className="mb-3" controlId={`form-predefined-${key}`} key={key}>
-              <Form.Label column sm={3} style={{ textTransform: 'capitalize' }}>{key.replace(/_/g, ' ')}</Form.Label>
+              <Form.Label column sm={3}>{key}</Form.Label> 
               <Col sm={9}>
                 <InputGroup>
                   <Form.Control

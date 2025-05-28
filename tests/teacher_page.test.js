@@ -322,13 +322,19 @@ describe('Teacher Page Functionality', () => {
       });
 
       describe('Predefined Variables Management', () => {
-        // These tests address the bug fix for ensuring predefined variables cannot be removed
-        // and can still be edited, and now also that they have "Clear" buttons.
-        it('should display predefined variables with "Clear" buttons and no "Remove" buttons', () => {
+        // These tests address the bug fix for ensuring predefined variables cannot be removed,
+        // can be edited, have "Clear" buttons, and now display exact JSON key names as labels.
+        it('should display predefined variables with their JSON key names as labels, "Clear" buttons, and no "Remove" buttons', () => {
           // const initialData = { user_id: 1, content: "Content", variables: { office_hours: "Mon", research_interests: "AI", contact_email: "test@example.com" } };
           // renderEditor({ user: { user_id: 1, username: 'testuser' }, isLoading: false, isError: null }, { data: initialData, isLoading: false, isError: null });
           
-          // const officeHoursInput = screen.getByDisplayValue("Mon");
+          // // Verify labels are the exact key names
+          // expect(screen.getByLabelText('office_hours')).toBeInTheDocument(); // Assumes Form.Label makes this work, or query specifically for the label content.
+          // expect(screen.getByText('office_hours', { selector: 'label' })).toBeInTheDocument(); 
+          // expect(screen.getByText('research_interests', { selector: 'label' })).toBeInTheDocument();
+          // expect(screen.getByText('contact_email', { selector: 'label' })).toBeInTheDocument();
+
+          // const officeHoursInput = screen.getByDisplayValue("Mon"); // Example: find by current value to get related elements
           // const researchInput = screen.getByDisplayValue("AI");
           // const emailInput = screen.getByDisplayValue("test@example.com");
 
@@ -338,7 +344,7 @@ describe('Teacher Page Functionality', () => {
           // expect(emailInput.closest('.input-group').querySelector('button[aria-label="Clear Contact email"]')).toBeInTheDocument();
           
           // // Check that no "Remove" button is near these inputs.
-          // expect(officeHoursInput.closest('.row').querySelector('button:not([aria-label*="Clear"])')).toBeNull(); // Assuming "Remove" buttons don't have "Clear" in aria-label
+          // expect(officeHoursInput.closest('.row').querySelector('button:not([aria-label*="Clear"])')).toBeNull(); 
         });
 
         it('should clear the content of a predefined variable when its "Clear" button is clicked', () => {
