@@ -18,7 +18,8 @@ import CreateArticle from './components/CreateArticle';
 import EditArticle from './components/EditArticle';
 import TeacherCalendar from './components/TeacherCalendar';
 import TeacherPersonalPageEditor from './components/TeacherPersonalPageEditor';
-import TeacherPublicPageView from './components/TeacherPublicPageView'; // Import new component
+import TeacherPublicPageView from './components/TeacherPublicPageView';
+import DevTeacherPagePortal from './components/DevTeacherPagePortal'; // Import new component
 
 const components = {
   Component1: Component1,
@@ -37,7 +38,8 @@ const components = {
   EditArticle: EditArticle,
   TeacherCalendar: TeacherCalendar,
   TeacherPersonalPageEditor: TeacherPersonalPageEditor,
-  TeacherPublicPageView: TeacherPublicPageView, // Add new component to the map
+  TeacherPublicPageView: TeacherPublicPageView,
+  DevTeacherPagePortal: DevTeacherPagePortal,   // Add new component to the map
 };
 
 // Modified renderComponent to accept and pass props
