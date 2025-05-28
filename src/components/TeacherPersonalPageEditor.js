@@ -4,7 +4,6 @@ import ReactMarkdown from 'react-markdown'; // Used by MdEditor for rendering, a
 import 'react-markdown-editor-lite/lib/index.css'; // Default styling for the editor
 import { Container, Card, Button, Collapse, Alert } from 'react-bootstrap';
 
-/*
 // Basic Markdown Cheatsheet Content
 const markdownCheatsheet = `
 #### Markdown Cheatsheet
@@ -50,7 +49,6 @@ function greet() {
 **Horizontal Rule:**
 ---
 `;
-*/
 
 function TeacherPersonalPageEditor({ user }) { // user prop might be used later for saving
   const [markdownContent, setMarkdownContent] = useState(
@@ -94,11 +92,9 @@ This is some initial **Markdown** content. You can edit it freely.
             </Button>
             <Collapse in={showCheatsheet}>
               <div id="markdown-cheatsheet-collapse" className="mt-2">
-                {/*
                 <Alert variant="light" style={{ whiteSpace: 'pre-wrap', maxHeight: '300px', overflowY: 'auto' }}>
                   {markdownCheatsheet}
                 </Alert>
-                */}
               </div>
             </Collapse>
           </div>
