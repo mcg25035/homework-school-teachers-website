@@ -1,67 +1,45 @@
 import React, { useState } from 'react';
 import MdEditor from 'react-markdown-editor-lite';
-import ReactMarkdown from 'react-markdown'; // Used by MdEditor for rendering, also can be used standalone
-import 'react-markdown-editor-lite/lib/index.css'; // Default styling for the editor
+import ReactMarkdown from 'react-markdown';
+import 'react-markdown-editor-lite/lib/index.css';
 import { Container, Card, Button, Collapse, Alert } from 'react-bootstrap';
 
-/*
-// Basic Markdown Cheatsheet Content
-const markdownCheatsheet = `
-#### Markdown Cheatsheet
+// Basic Markdown Cheatsheet Content - DEFINED WITH BACKTICKS
+const markdownCheatsheet = \`
+#### Markdown Cheatsheet (Simplified)
 
 **Headers:**
 # H1
 ## H2
-### H3
 
 **Emphasis:**
-*italic* or _italic_
-**bold** or __bold__
-***bold italic*** or ___bold italic___
+*italic*
+**bold**
 
 **Lists:**
-**Unordered**
 - Item 1
 - Item 2
-  - Sub-item
-
-**Ordered**
-1. First item
-2. Second item
 
 **Links:**
-[Link text](https://www.example.com)
-
-**Images:**
-![Alt text](https://via.placeholder.com/150)
+[Example Link](https://www.example.com)
 
 **Code:**
-Inline \\\`code\\\`
-\\\`\\\`\\\`
-// Code block
-function greet() {
-  console.log("Hello!");
+Inline \\\\\`code\\\\\`
+\\\\\\\`\\\\\\\`\\\\\\\`
+function test() {
+  console.log("hello");
 }
-\\\`\\\`\\\`
+\\\\\\\`\\\\\\\`\\\\\\\`
+\`; // END OF BACKTICK STRING
 
-**Blockquotes:**
-> This is a blockquote.
-
-**Horizontal Rule:**
----
-`;
-*/
-
-function TeacherPersonalPageEditor({ user }) { // user prop might be used later for saving
+function TeacherPersonalPageEditor({ user }) {
   const [markdownContent, setMarkdownContent] = useState(
-    '# Welcome to Your Personal Page!
+\`# Welcome!
 
-This is some initial **Markdown** content. You can edit it freely.
-
-- List item 1
-- List item 2
-
-[Learn more about Markdown!](https://www.markdownguide.org)'
+Edit this page using Markdown.
+- Point one
+- Point two
+\`
   );
   const [showCheatsheet, setShowCheatsheet] = useState(false);
 
@@ -72,9 +50,7 @@ This is some initial **Markdown** content. You can edit it freely.
   const handleSave = () => {
     console.log('Saving content for user:', user ? user.user_id : 'Unknown user');
     console.log('Markdown Content:', markdownContent);
-    // In a real app, this would make an API call:
-    // await saveTeacherPageApi({ userId: user.user_id, content: markdownContent });
-    alert("Content logged to console. No backend integration yet.");
+    alert("Content logged to console. No backend integration yet."); // Ensure this line is simple
   };
 
   return (
@@ -94,33 +70,22 @@ This is some initial **Markdown** content. You can edit it freely.
             </Button>
             <Collapse in={showCheatsheet}>
               <div id="markdown-cheatsheet-collapse" className="mt-2">
-                {/*
+                {/* Ensure cheatsheet is rendered correctly */}
                 <Alert variant="light" style={{ whiteSpace: 'pre-wrap', maxHeight: '300px', overflowY: 'auto' }}>
-                  {markdownCheatsheet}
+                  <pre>{markdownCheatsheet}</pre>
                 </Alert>
-                */}
               </div>
             </Collapse>
           </div>
 
           <MdEditor
             value={markdownContent}
-            style={{ height: '500px' }} // Or other desired height
+            style={{ height: '500px' }}
             onChange={handleEditorChange}
-            renderHTML={text => <ReactMarkdown>{text}</ReactMarkdown>} // Use ReactMarkdown for preview
+            renderHTML={text => <ReactMarkdown>{text}</ReactMarkdown>}
             config={{
-              view: {
-                menu: true, // Show view menu (MD, HTML, Fullscreen)
-                md: true,   // Show MD editor panel
-                html: true, // Show HTML preview panel
-              },
-              canView: {
-                menu: true,
-                md: true,
-                html: true,
-                fullScreen: true,
-                hideMenu: true,
-              }
+              view: { menu: true, md: true, html: true },
+              canView: { menu: true, md: true, html: true, fullScreen: true, hideMenu: true }
             }}
           />
           
