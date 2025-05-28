@@ -84,10 +84,14 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
 
   const handleNewEventChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setNewEventData(prev => ({ 
-      ...prev, 
-      [name]: type === 'checkbox' ? (checked ? 1 : 0) : value 
-    }));
+    if (type === 'checkbox') {
+      setNewEventData(prev => ({ ...prev, [name]: checked ? 1 : 0 }));
+    } else if (type === 'datetime-local') {
+      // Ensure value is not empty before converting to Date
+      setNewEventData(prev => ({ ...prev, [name]: value ? moment(value).toDate() : null }));
+    } else {
+      setNewEventData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSaveNewEvent = async () => {
@@ -225,11 +229,23 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
             </Form.Group>
             <Form.Group className="mb-3" controlId="eventStart">
               <Form.Label>Start Time</Form.Label>
-              <Form.Control type="text" readOnly value={newEventData.start ? moment(newEventData.start).format('LLL') : ''} />
+              <Form.Control 
+                type="datetime-local" 
+                name="start" // Add name attribute
+                value={newEventData.start ? moment(newEventData.start).format('YYYY-MM-DDTHH:mm') : ''} 
+                onChange={handleNewEventChange} 
+                required 
+              />
             </Form.Group>
             <Form.Group className="mb-3" controlId="eventEnd">
               <Form.Label>End Time</Form.Label>
-              <Form.Control type="text" readOnly value={newEventData.end ? moment(newEventData.end).format('LLL') : ''} />
+              <Form.Control 
+                type="datetime-local" 
+                name="end" // Add name attribute
+                value={newEventData.end ? moment(newEventData.end).format('YYYY-MM-DDTHH:mm') : ''} 
+                onChange={handleNewEventChange} 
+                required 
+              />
             </Form.Group>
             <Form.Group className="mb-3" controlId="eventDescription">
               <Form.Label>Description (Optional)</Form.Label>
