@@ -143,22 +143,33 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
   };
   
   const handleDeleteEvent = async () => {
-    if (!selectedEvent || !selectedEvent.id) return;
-    console.log('Attempting to delete event:', selectedEvent); // Added log
-    setModalError(''); // Clear previous modal errors specifically for this modal
+    const eventIdToDelete = selectedEvent ? (selectedEvent.event_id || selectedEvent.id) : null;
+
+    // Updated guard clause
+    if (!selectedEvent || !eventIdToDelete) {
+      console.error('No valid event ID (checked event_id then id) found for deletion. selectedEvent:', selectedEvent);
+      setModalError('Cannot delete event: Critical Event ID is missing.'); // Error for modal
+      return;
+    }
+    
+    // The console.log that was added to the onClick of the button can be removed now,
+    // as this internal log is more informative.
+    // However, for this subtask, only modify handleDeleteEvent.
+    console.log(`Attempting to delete event with ID: ${eventIdToDelete}. Full event object:`, selectedEvent); 
+    setModalError(''); 
 
     setIsSubmitting(true);
     try {
-      const result = await deleteCalendarEvent(selectedEvent.id);
+      const result = await deleteCalendarEvent(eventIdToDelete); // Use eventIdToDelete
       if (result.success) {
         setShowEventModal(false);
         setSelectedEvent(null);
         // SWR should revalidate
       } else {
-        setModalError(result.error || 'Error deleting event. Please try again.'); // Set error in modal
+        setModalError(result.error || 'Error deleting event. Please try again.');
       }
     } catch (err) {
-      setModalError('An unexpected error occurred: ' + err.message); // Set error in modal
+      setModalError('An unexpected error occurred: ' + err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -210,10 +221,7 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="outline-danger" onClick={() => { 
-  console.log('Delete button clicked. selectedEvent object:', selectedEvent); 
-  handleDeleteEvent(); 
-}} disabled={isSubmitting}>
+          <Button variant="outline-danger" onClick={handleDeleteEvent} disabled={isSubmitting}>
             {isSubmitting ? <Spinner as="span" animation="border" size="sm" /> : 'Delete Event'}
           </Button>
           <Button variant="secondary" onClick={() => setShowEventModal(false)}>
