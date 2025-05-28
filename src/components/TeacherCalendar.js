@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react'; // Added useEffect, useMemo
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { Modal, Button, Form, Container, Card, Alert, Spinner } from 'react-bootstrap'; // Added Spinner
+import { Modal, Button, Form, Container, Card, Alert, Spinner } from 'react-bootstrap';
 
 // Import API functions
 import { useCalendarEvents, createCalendarEvent, deleteCalendarEvent } from '../api';
@@ -14,25 +14,22 @@ const formatDateTimeForAPI = (date) => {
   return moment(date).format('YYYY-MM-DD HH:MM:SS');
 };
 
-function TeacherCalendar({ user }) { // Removed setActiveComponent if not used internally
-  const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date()); // New state for calendar's displayed date
-
-  // Renamed dateRange to apiFetchRange, stores start/end for API fetching
+function TeacherCalendar({ user }) {
+  const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [apiFetchRange, setApiFetchRange] = useState({
     start: moment(currentCalendarDate).startOf('month').format('YYYY-MM-DD'),
     end: moment(currentCalendarDate).endOf('month').format('YYYY-MM-DD'),
   });
 
-  // Fetch events using the API hook
   const { 
     events: fetchedEvents, 
     isLoading: isLoadingEvents, 
     isError: fetchEventsError,
-    revalidateEvents // To manually trigger re-fetch
+    // revalidateEvents // Not explicitly used, SWR handles revalidation via performMutation
   } = useCalendarEvents({ 
     userId: user ? user.user_id : null, 
-    startDate: apiFetchRange.start, // Use apiFetchRange
-    endDate: apiFetchRange.end,     // Use apiFetchRange
+    startDate: apiFetchRange.start,
+    endDate: apiFetchRange.end,
   });
 
   const [showEventModal, setShowEventModal] = useState(false);
@@ -43,52 +40,45 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
     start: null,
     end: null,
     description: '',
-    is_public: 0, // Default to private
+    is_public: 0,
   });
   const [modalError, setModalError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false); // For loading state during API calls
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Transform fetched events for react-big-calendar
   const calendarEvents = useMemo(() => {
     return fetchedEvents.map(event => ({
-      ...event, // This will spread the 'id' field from the backend correctly
-      start: new Date(event.start_datetime), // Convert string to Date object
-      end: new Date(event.end_datetime),   // Convert string to Date object
+      ...event, 
+      start: new Date(event.start_datetime),
+      end: new Date(event.end_datetime),   
     }));
   }, [fetchedEvents]);
 
-  // Called when calendar's built-in navigation buttons are clicked
   const handleNavigate = useCallback((newDate) => {
     setCurrentCalendarDate(new Date(newDate));
   }, []);
 
-  // Called when the visible range of the calendar changes
   const handleRangeChange = useCallback((rangeInput, view) => {
     let startMoment, endMoment;
-    if (Array.isArray(rangeInput)) { // For week and day views
+    if (Array.isArray(rangeInput)) { 
       startMoment = moment(rangeInput[0]);
       endMoment = moment(rangeInput[rangeInput.length - 1]);
-    } else { // For month and agenda views (rangeInput is an object {start, end})
+    } else { 
       startMoment = moment(rangeInput.start);
       endMoment = moment(rangeInput.end);
     }
-    
-    let effectiveView = view || 'month'; // Default to month if view is undefined
-
+    let effectiveView = view || 'month';
     setApiFetchRange({
       start: startMoment.startOf(effectiveView === 'agenda' ? 'day' : effectiveView).format('YYYY-MM-DD'),
       end: endMoment.endOf(effectiveView === 'agenda' ? 'day' : effectiveView).format('YYYY-MM-DD'),
     });
   }, []);
 
-  // Synchronize apiFetchRange with currentCalendarDate
   useEffect(() => {
     setApiFetchRange({
         start: moment(currentCalendarDate).startOf('month').format('YYYY-MM-DD'),
         end: moment(currentCalendarDate).endOf('month').format('YYYY-MM-DD'),
     });
   }, [currentCalendarDate]);
-
 
   const handleSelectSlot = useCallback(({ start, end }) => {
     setModalError('');
@@ -97,8 +87,8 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
   }, []);
 
   const handleSelectEvent = useCallback((event) => {
-    setModalError(''); // Clear previous errors
-    setSelectedEvent(event); // event here is already transformed with Date objects and 'id'
+    setModalError(''); 
+    setSelectedEvent(event); 
     setShowEventModal(true);
   }, []);
 
@@ -107,7 +97,6 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
     if (type === 'checkbox') {
       setNewEventData(prev => ({ ...prev, [name]: checked ? 1 : 0 }));
     } else if (type === 'datetime-local') {
-      // Ensure value is not empty before converting to Date
       setNewEventData(prev => ({ ...prev, [name]: value ? moment(value).toDate() : null }));
     } else {
       setNewEventData(prev => ({ ...prev, [name]: value }));
@@ -136,7 +125,6 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
       start_datetime: formatDateTimeForAPI(newEventData.start),
       end_datetime: formatDateTimeForAPI(newEventData.end),
       is_public: newEventData.is_public,
-      // user_id is handled by the backend based on session
     };
 
     try {
@@ -144,10 +132,7 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
       if (result.success) {
         setShowAddEventModal(false);
         setNewEventData({ title: '', start: null, end: null, description: '', is_public: 0 });
-        // SWR should revalidate useCalendarEvents automatically due to changes in /api/calendar.php
-        // Or we could call revalidateEvents() if needed, but performMutation should handle it.
       } else {
-        // API returns 409 with { "message": "...", "data": { "conflicting_event_id": ... } }
         if (result.error && result.error.toLowerCase().includes('conflict')) {
             setModalError(`Time conflict detected. ${result.message || ''}`);
         } else {
@@ -162,28 +147,21 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
   };
   
   const handleDeleteEvent = async () => {
-    const eventIdToDelete = selectedEvent ? selectedEvent.id : null; // Directly use .id
-
-    // Updated guard clause
-    if (!selectedEvent || typeof eventIdToDelete === 'undefined' || eventIdToDelete === null) { // More robust check
+    const eventIdToDelete = selectedEvent ? selectedEvent.id : null; 
+    if (!selectedEvent || typeof eventIdToDelete === 'undefined' || eventIdToDelete === null) {
       console.error('No valid event ID (selectedEvent.id) found for deletion. selectedEvent:', selectedEvent);
       setModalError('Cannot delete event: Critical Event ID is missing.');
       return;
     }
-    
-    // The console.log that was added to the onClick of the button can be removed now,
-    // as this internal log is more informative.
-    // However, for this subtask, only modify handleDeleteEvent.
     console.log(`Attempting to delete event with ID: ${eventIdToDelete}. Full event object:`, selectedEvent); 
     setModalError(''); 
 
     setIsSubmitting(true);
     try {
-      const result = await deleteCalendarEvent(eventIdToDelete); // Use eventIdToDelete
+      const result = await deleteCalendarEvent(eventIdToDelete);
       if (result.success) {
         setShowEventModal(false);
         setSelectedEvent(null);
-        // SWR should revalidate
       } else {
         setModalError(result.error || 'Error deleting event. Please try again.');
       }
@@ -206,7 +184,7 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
             {!isLoadingEvents && (
               <Calendar
                 localizer={localizer}
-                events={calendarEvents} // Use transformed events
+                events={calendarEvents}
                 startAccessor="start"
                 endAccessor="end"
                 style={{ height: '100%' }}
@@ -216,21 +194,20 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
                 onNavigate={handleNavigate} 
                 onRangeChange={handleRangeChange} 
                 date={currentCalendarDate} 
-                defaultView="month" 
-                views={['month', 'week', 'day', 'agenda']}
+                defaultView="month" // Kept as is per instruction for this step
+                views={['month']}    // Kept as is per instruction for this step
               />
             )}
           </div>
         </Card.Body>
       </Card>
 
-      {/* Modal for Viewing/Deleting Existing Event */}
       <Modal show={showEventModal} onHide={() => { setShowEventModal(false); setModalError(''); }}>
         <Modal.Header closeButton>
           <Modal.Title>{selectedEvent?.title}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {modalError && <Alert variant="danger" onClose={() => setModalError('')} dismissible>{modalError}</Alert>} {/* Added error display */}
+          {modalError && <Alert variant="danger" onClose={() => setModalError('')} dismissible>{modalError}</Alert>}
           {selectedEvent && (
             <>
               <p><strong>Starts:</strong> {moment(selectedEvent.start).format('LLL')}</p>
@@ -250,13 +227,12 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
         </Modal.Footer>
       </Modal>
 
-      {/* Modal for Adding New Event */}
-      <Modal show={showAddEventModal} onHide={() => setShowAddEventModal(false)}>
+      <Modal show={showAddEventModal} onHide={() => {setShowAddEventModal(false); setModalError(''); /*Clear error on close*/ }}>
         <Modal.Header closeButton>
           <Modal.Title>Add New Schedule</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {modalError && <Alert variant="danger">{modalError}</Alert>}
+          {modalError && <Alert variant="danger" onClose={() => setModalError('')} dismissible>{modalError}</Alert>}
           <Form>
             <Form.Group className="mb-3" controlId="eventTitle">
               <Form.Label>Title</Form.Label>
@@ -266,7 +242,7 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
               <Form.Label>Start Time</Form.Label>
               <Form.Control 
                 type="datetime-local" 
-                name="start" // Add name attribute
+                name="start"
                 value={newEventData.start ? moment(newEventData.start).format('YYYY-MM-DDTHH:mm') : ''} 
                 onChange={handleNewEventChange} 
                 required 
@@ -276,7 +252,7 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
               <Form.Label>End Time</Form.Label>
               <Form.Control 
                 type="datetime-local" 
-                name="end" // Add name attribute
+                name="end"
                 value={newEventData.end ? moment(newEventData.end).format('YYYY-MM-DDTHH:mm') : ''} 
                 onChange={handleNewEventChange} 
                 required 
@@ -292,7 +268,7 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowAddEventModal(false)}>Cancel</Button>
+          <Button variant="secondary" onClick={() => {setShowAddEventModal(false); setModalError('');}}>Cancel</Button>
           <Button variant="primary" onClick={handleSaveNewEvent} disabled={isSubmitting}>
             {isSubmitting ? <><Spinner as="span" animation="border" size="sm" /> Saving...</> : 'Save Schedule'}
           </Button>
