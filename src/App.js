@@ -27,6 +27,7 @@ function App() {
     { component: 'TeacherBookings', display: '查看預約' },
     { component: 'ArticleList', display: '文章' }, // Added ArticleList
     { component: 'TeacherCalendar', display: '行事曆' },
+    { component: 'TeacherPersonalPageEditor', display: '編輯個人頁面' },
   ];
 
   if (isLoginStatusLoading) {
