@@ -1,23 +1,39 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react'; // Added useEffect, useMemo
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { Modal, Button, Form, Container, Card, Alert } from 'react-bootstrap';
+import { Modal, Button, Form, Container, Card, Alert, Spinner } from 'react-bootstrap'; // Added Spinner
 
-// Setup the localizer by providing the moment Object
+// Import API functions
+import { useCalendarEvents, createCalendarEvent, deleteCalendarEvent } from '../api';
+
 const localizer = momentLocalizer(moment);
 
-function TeacherCalendar({ user, setActiveComponent }) { // user might be needed later for API calls
-  const [events, setEvents] = useState([
-    // Sample initial event (optional)
-    // {
-    //   id: 1,
-    //   title: 'Sample Meeting',
-    //   start: new Date(moment().startOf('day').add(10, 'hours').valueOf()), // Today 10 AM
-    //   end: new Date(moment().startOf('day').add(12, 'hours').valueOf()),   // Today 12 PM
-    //   description: 'Discuss project updates',
-    // }
-  ]);
+// Helper to format dates for the backend
+const formatDateTimeForAPI = (date) => {
+  return moment(date).format('YYYY-MM-DD HH:MM:SS');
+};
+
+function TeacherCalendar({ user }) { // Removed setActiveComponent if not used internally
+  // State for calendar view range
+  const [dateRange, setDateRange] = useState({
+    start: moment().startOf('month').toDate(),
+    end: moment().endOf('month').toDate(),
+  });
+
+  // Fetch events using the API hook
+  const { 
+    events: fetchedEvents, 
+    isLoading: isLoadingEvents, 
+    isError: fetchEventsError,
+    revalidateEvents // To manually trigger re-fetch
+  } = useCalendarEvents({ 
+    userId: user ? user.user_id : null, 
+    // Pass date range to fetch only events in the current view
+    // Format them as YYYY-MM-DD for the API's start_date and end_date params
+    startDate: moment(dateRange.start).format('YYYY-MM-DD'),
+    endDate: moment(dateRange.end).format('YYYY-MM-DD'),
+  });
 
   const [showEventModal, setShowEventModal] = useState(false);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
@@ -27,108 +43,145 @@ function TeacherCalendar({ user, setActiveComponent }) { // user might be needed
     start: null,
     end: null,
     description: '',
+    is_public: 0, // Default to private
   });
   const [modalError, setModalError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false); // For loading state during API calls
+
+  // Transform fetched events for react-big-calendar
+  const calendarEvents = useMemo(() => {
+    return fetchedEvents.map(event => ({
+      ...event,
+      id: event.event_id, // Map event_id to id
+      start: new Date(event.start_datetime), // Convert string to Date object
+      end: new Date(event.end_datetime),   // Convert string to Date object
+    }));
+  }, [fetchedEvents]);
+
+  const handleRangeChange = useCallback((range) => {
+    // range can be an array of dates (week/day view) or an object {start, end} (month view)
+    if (Array.isArray(range)) {
+      setDateRange({ start: moment(range[0]).toDate(), end: moment(range[range.length - 1]).endOf('day').toDate() });
+    } else if (range.start && range.end) {
+      // For month view, `range` is an object like { start: Date, end: Date }
+      // The end date from react-big-calendar for month view is often the start of the last day shown.
+      // Adjust to ensure we capture the whole range.
+      setDateRange({ start: moment(range.start).toDate(), end: moment(range.end).endOf('day').toDate() });
+    }
+  }, []);
 
 
-  // --- Start of Event Handling Callbacks ---
-  const handleSelectSlot = useCallback(
-    ({ start, end }) => {
-      setModalError('');
-      setNewEventData({ title: '', start, end, description: '' });
-      setShowAddEventModal(true);
-    },
-    []
-  );
+  const handleSelectSlot = useCallback(({ start, end }) => {
+    setModalError('');
+    setNewEventData({ title: '', start, end, description: '', is_public: 0 });
+    setShowAddEventModal(true);
+  }, []);
 
-  const handleSelectEvent = useCallback(
-    (event) => {
-      setSelectedEvent(event);
-      setShowEventModal(true);
-    },
-    []
-  );
-  // --- End of Event Handling Callbacks ---
+  const handleSelectEvent = useCallback((event) => {
+    setSelectedEvent(event); // event here is already transformed with Date objects and 'id'
+    setShowEventModal(true);
+  }, []);
 
-
-  // --- Start of Modal Form Handling ---
   const handleNewEventChange = (e) => {
-    const { name, value } = e.target;
-    setNewEventData(prev => ({ ...prev, [name]: value }));
-  };
-  
-  const handleNewEventDateTimeChange = (name, datetime) => {
-    // For potential future use with datetime pickers; for now, start/end are from slot
-    setNewEventData(prev => ({ ...prev, [name]: new Date(datetime) }));
+    const { name, value, type, checked } = e.target;
+    setNewEventData(prev => ({ 
+      ...prev, 
+      [name]: type === 'checkbox' ? (checked ? 1 : 0) : value 
+    }));
   };
 
-
-  const handleSaveNewEvent = () => {
+  const handleSaveNewEvent = async () => {
     setModalError('');
     if (!newEventData.title) {
       setModalError('Title is required.');
       return;
     }
     if (!newEventData.start || !newEventData.end) {
-        setModalError('Start and End times are required.');
-        return;
+      setModalError('Start and End times are required.');
+      return;
     }
     if (moment(newEventData.start).isAfter(moment(newEventData.end))) {
-        setModalError('Start time cannot be after end time.');
-        return;
+      setModalError('Start time cannot be after end time.');
+      return;
     }
 
-    // Placeholder for API call
-    console.log('Simulating API call to add event:', newEventData);
-    // const result = await addEventApiCall(newEventData); // Actual API call
-    // if (result.success) {
-      setEvents(prev => [
-        ...prev,
-        { ...newEventData, id: Date.now() /* Temporary ID */ }
-      ]);
-      setShowAddEventModal(false);
-      setNewEventData({ title: '', start: null, end: null, description: '' });
-    // } else {
-    //   setModalError(result.error || 'Failed to save event.');
-    // }
+    setIsSubmitting(true);
+    const apiEventData = {
+      title: newEventData.title,
+      description: newEventData.description,
+      start_datetime: formatDateTimeForAPI(newEventData.start),
+      end_datetime: formatDateTimeForAPI(newEventData.end),
+      is_public: newEventData.is_public,
+      // user_id is handled by the backend based on session
+    };
+
+    try {
+      const result = await createCalendarEvent(apiEventData);
+      if (result.success) {
+        setShowAddEventModal(false);
+        setNewEventData({ title: '', start: null, end: null, description: '', is_public: 0 });
+        // SWR should revalidate useCalendarEvents automatically due to changes in /api/calendar.php
+        // Or we could call revalidateEvents() if needed, but performMutation should handle it.
+      } else {
+        // API returns 409 with { "message": "...", "data": { "conflicting_event_id": ... } }
+        if (result.error && result.error.toLowerCase().includes('conflict')) {
+            setModalError(`Time conflict detected. ${result.message || ''}`);
+        } else {
+            setModalError(result.error || 'Failed to save event.');
+        }
+      }
+    } catch (err) {
+      setModalError('An unexpected error occurred: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
-  const handleDeleteEvent = () => {
+  const handleDeleteEvent = async () => {
     if (!selectedEvent || !selectedEvent.id) return;
 
-    // Placeholder for API call
-    console.log('Simulating API call to delete event:', selectedEvent.id);
-    // const result = await deleteEventApiCall(selectedEvent.id); // Actual API call
-    // if (result.success) {
-      setEvents(prev => prev.filter(event => event.id !== selectedEvent.id));
-      setShowEventModal(false);
-      setSelectedEvent(null);
-    // } else {
-    //   alert('Error deleting event: ' + result.error); // Or set error in modal
-    // }
+    setIsSubmitting(true);
+    try {
+      const result = await deleteCalendarEvent(selectedEvent.id); // Use original event_id if mapped, or ensure 'id' is the correct one
+      if (result.success) {
+        setShowEventModal(false);
+        setSelectedEvent(null);
+        // SWR should revalidate
+      } else {
+        alert('Error deleting event: ' + (result.error || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('An unexpected error occurred: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-  // --- End of Modal Form Handling ---
-
 
   return (
     <Container fluid>
       <Card className="mt-3">
         <Card.Header as="h4">Teacher Calendar</Card.Header>
         <Card.Body>
+          {fetchEventsError && <Alert variant="danger">Error loading events. Please try again later.</Alert>}
           <p>Select a slot to add an event, or click an existing event to view/delete.</p>
-          <div style={{ height: '70vh' }}> {/* Calendar needs a defined height */}
-            <Calendar
-              localizer={localizer}
-              events={events}
-              startAccessor="start"
-              endAccessor="end"
-              style={{ height: '100%' }}
-              selectable // Allows clicking on empty slots
-              onSelectSlot={handleSelectSlot}
-              onSelectEvent={handleSelectEvent}
-              defaultView="month"
-              views={['month', 'week', 'day', 'agenda']}
-            />
+          <div style={{ height: '70vh' }}>
+            {isLoadingEvents && <Spinner animation="border" />}
+            {!isLoadingEvents && (
+              <Calendar
+                localizer={localizer}
+                events={calendarEvents} // Use transformed events
+                startAccessor="start"
+                endAccessor="end"
+                style={{ height: '100%' }}
+                selectable
+                onSelectSlot={handleSelectSlot}
+                onSelectEvent={handleSelectEvent}
+                onRangeChange={handleRangeChange} // Fetch new events when range changes
+                defaultView="month"
+                views={['month', 'week', 'day', 'agenda']}
+                date={dateRange.start} // Control current date view
+              />
+            )}
           </div>
         </Card.Body>
       </Card>
@@ -144,12 +197,13 @@ function TeacherCalendar({ user, setActiveComponent }) { // user might be needed
               <p><strong>Starts:</strong> {moment(selectedEvent.start).format('LLL')}</p>
               <p><strong>Ends:</strong> {moment(selectedEvent.end).format('LLL')}</p>
               {selectedEvent.description && <p><strong>Description:</strong> {selectedEvent.description}</p>}
+              <p><strong>Public:</strong> {selectedEvent.is_public ? 'Yes' : 'No'}</p>
             </>
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="outline-danger" onClick={handleDeleteEvent}>
-            Delete Event
+          <Button variant="outline-danger" onClick={handleDeleteEvent} disabled={isSubmitting}>
+            {isSubmitting ? <Spinner as="span" animation="border" size="sm" /> : 'Delete Event'}
           </Button>
           <Button variant="secondary" onClick={() => setShowEventModal(false)}>
             Close
@@ -167,49 +221,29 @@ function TeacherCalendar({ user, setActiveComponent }) { // user might be needed
           <Form>
             <Form.Group className="mb-3" controlId="eventTitle">
               <Form.Label>Title</Form.Label>
-              <Form.Control 
-                type="text" 
-                name="title" 
-                value={newEventData.title} 
-                onChange={handleNewEventChange} 
-                required
-              />
+              <Form.Control type="text" name="title" value={newEventData.title} onChange={handleNewEventChange} required />
             </Form.Group>
             <Form.Group className="mb-3" controlId="eventStart">
               <Form.Label>Start Time</Form.Label>
-              {/* In a real app, use a DateTimePicker here. For now, it's pre-filled by onSelectSlot */}
-              <Form.Control 
-                type="text" 
-                readOnly 
-                value={newEventData.start ? moment(newEventData.start).format('LLL') : ''} 
-              />
+              <Form.Control type="text" readOnly value={newEventData.start ? moment(newEventData.start).format('LLL') : ''} />
             </Form.Group>
             <Form.Group className="mb-3" controlId="eventEnd">
               <Form.Label>End Time</Form.Label>
-              <Form.Control 
-                type="text" 
-                readOnly 
-                value={newEventData.end ? moment(newEventData.end).format('LLL') : ''} 
-              />
+              <Form.Control type="text" readOnly value={newEventData.end ? moment(newEventData.end).format('LLL') : ''} />
             </Form.Group>
             <Form.Group className="mb-3" controlId="eventDescription">
               <Form.Label>Description (Optional)</Form.Label>
-              <Form.Control 
-                as="textarea" 
-                rows={3} 
-                name="description" 
-                value={newEventData.description} 
-                onChange={handleNewEventChange} 
-              />
+              <Form.Control as="textarea" rows={3} name="description" value={newEventData.description} onChange={handleNewEventChange} />
+            </Form.Group>
+            <Form.Group className="mb-3" controlId="eventIsPublic">
+              <Form.Check type="checkbox" name="is_public" label="Make this event public" checked={newEventData.is_public === 1} onChange={handleNewEventChange} />
             </Form.Group>
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowAddEventModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={handleSaveNewEvent}>
-            Save Schedule
+          <Button variant="secondary" onClick={() => setShowAddEventModal(false)}>Cancel</Button>
+          <Button variant="primary" onClick={handleSaveNewEvent} disabled={isSubmitting}>
+            {isSubmitting ? <><Spinner as="span" animation="border" size="sm" /> Saving...</> : 'Save Schedule'}
           </Button>
         </Modal.Footer>
       </Modal>

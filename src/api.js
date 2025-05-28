@@ -42,6 +42,8 @@ async function performMutation(url, method, data, revalidateKey = null) {
         mutate(key => key.startsWith(`${API_ENDPOINT}/article.php`), { revalidate: true });
       } else if (url.includes('/booking.php')) {
         mutate(key => key.startsWith(`${API_ENDPOINT}/booking.php`), { revalidate: true });
+      } else if (url.includes('/calendar.php')) { // ADD THIS BLOCK
+        mutate(key => key.startsWith(`${API_ENDPOINT}/calendar.php`), { revalidate: true });
       } else if (url.includes('/comment.php')) {
         mutate(key => key.startsWith(`${API_ENDPOINT}/comment.php`), { revalidate: true });
       } else if (url.includes('/course.php')) {
@@ -365,3 +367,82 @@ export async function updatePermission(permissionId, permissionData) {
 export async function deletePermission(permissionId) {
   return performMutation(`${API_ENDPOINT}/permission.php?permission_id=${permissionId}`, 'DELETE');
 }
+
+// (Make sure this is placed before the last export default or at a similar appropriate location with other API groups)
+
+// Calendar API
+
+/**
+ * @typedef {Object} CalendarEvent
+ * @property {number} event_id - The ID of the event.
+ * @property {string} title - The title of the event.
+ * @property {string} description - The description of the event.
+ * @property {string} start_datetime - The start date and time (YYYY-MM-DD HH:MM:SS).
+ * @property {string} end_datetime - The end date and time (YYYY-MM-DD HH:MM:SS).
+ * @property {number} user_id - The ID of the user who owns the event.
+ * @property {number} is_public - Whether the event is public (1) or private (0).
+ */
+
+/**
+ * Fetches calendar events based on provided parameters.
+ * @param {Object} params - Parameters for filtering events.
+ * @param {number} [params.userId] - User ID to fetch events for.
+ * @param {string} [params.startDate] - YYYY-MM-DD, fetch events starting after this date.
+ * @param {string} [params.endDate] - YYYY-MM-DD, fetch events ending before this date.
+ * @param {string} [params.month] - YYYY-MM, fetch events for a specific month.
+ * @param {string} [params.view] - 'public' to fetch all public events.
+ * @param {number} [params.eventId] - Specific event_id to fetch.
+ * @returns {{events: CalendarEvent[], isLoading: boolean, isError: Error}}
+ */
+export function useCalendarEvents({ userId, startDate, endDate, month, view, eventId } = {}) {
+  let query = new URLSearchParams();
+  if (eventId) query.set('event_id', eventId);
+  if (userId) query.set('user_id', userId);
+  if (startDate) query.set('start_date', startDate);
+  if (endDate) query.set('end_date', endDate);
+  if (month) query.set('month', month);
+  if (view) query.set('view', view);
+
+  const queryString = query.toString();
+  const url = `${API_ENDPOINT}/calendar.php${queryString ? '?' + queryString : ''}`;
+
+  const { data, error, mutate: revalidateEvents } = useSWR(url, fetcher);
+
+  return {
+    events: data && data.success ? (Array.isArray(data.data) ? data.data : (data.data ? [data.data] : [])) : [],
+    isLoading: !error && !data,
+    isError: error,
+    revalidateEvents // Expose mutate function for manual revalidation if needed
+  };
+}
+
+/**
+ * Creates a new calendar event.
+ * @param {Object} eventData - The event data.
+ * @param {string} eventData.title - Event title.
+ * @param {string} [eventData.description] - Event description.
+ * @param {string} eventData.start_datetime - Start time (YYYY-MM-DD HH:MM:SS).
+ * @param {string} eventData.end_datetime - End time (YYYY-MM-DD HH:MM:SS).
+ * @param {number} [eventData.is_public] - 0 for private (default), 1 for public.
+ * @returns {Promise<{success: boolean, data?: any, error?: string, message?: string}>}
+ */
+export async function createCalendarEvent(eventData) {
+  // performMutation will handle Content-Type and stringifying the body
+  return performMutation(`${API_ENDPOINT}/calendar.php`, 'POST', eventData);
+}
+
+/**
+ * Deletes a calendar event.
+ * @param {number} eventId - The ID of the event to delete.
+ * @returns {Promise<{success: boolean, data?: any, error?: string, message?: string}>}
+ */
+export async function deleteCalendarEvent(eventId) {
+  return performMutation(`${API_ENDPOINT}/calendar.php?event_id=${eventId}`, 'DELETE');
+}
+
+// (Optional for now: updateCalendarEvent)
+/*
+export async function updateCalendarEvent(eventId, eventData) {
+  return performMutation(`${API_ENDPOINT}/calendar.php?event_id=${eventId}`, 'PUT', eventData);
+}
+*/
