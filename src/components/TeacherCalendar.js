@@ -78,6 +78,7 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
   }, []);
 
   const handleSelectEvent = useCallback((event) => {
+    setModalError(''); // Clear previous errors
     setSelectedEvent(event); // event here is already transformed with Date objects and 'id'
     setShowEventModal(true);
   }, []);
@@ -143,19 +144,21 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
   
   const handleDeleteEvent = async () => {
     if (!selectedEvent || !selectedEvent.id) return;
+    console.log('Attempting to delete event:', selectedEvent); // Added log
+    setModalError(''); // Clear previous modal errors specifically for this modal
 
     setIsSubmitting(true);
     try {
-      const result = await deleteCalendarEvent(selectedEvent.id); // Use original event_id if mapped, or ensure 'id' is the correct one
+      const result = await deleteCalendarEvent(selectedEvent.id);
       if (result.success) {
         setShowEventModal(false);
         setSelectedEvent(null);
         // SWR should revalidate
       } else {
-        alert('Error deleting event: ' + (result.error || 'Unknown error'));
+        setModalError(result.error || 'Error deleting event. Please try again.'); // Set error in modal
       }
     } catch (err) {
-      alert('An unexpected error occurred: ' + err.message);
+      setModalError('An unexpected error occurred: ' + err.message); // Set error in modal
     } finally {
       setIsSubmitting(false);
     }
@@ -191,11 +194,12 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
       </Card>
 
       {/* Modal for Viewing/Deleting Existing Event */}
-      <Modal show={showEventModal} onHide={() => setShowEventModal(false)}>
+      <Modal show={showEventModal} onHide={() => { setShowEventModal(false); setModalError(''); }}>
         <Modal.Header closeButton>
           <Modal.Title>{selectedEvent?.title}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {modalError && <Alert variant="danger" onClose={() => setModalError('')} dismissible>{modalError}</Alert>} {/* Added error display */}
           {selectedEvent && (
             <>
               <p><strong>Starts:</strong> {moment(selectedEvent.start).format('LLL')}</p>
@@ -206,7 +210,10 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="outline-danger" onClick={handleDeleteEvent} disabled={isSubmitting}>
+          <Button variant="outline-danger" onClick={() => { 
+  console.log('Delete button clicked. selectedEvent object:', selectedEvent); 
+  handleDeleteEvent(); 
+}} disabled={isSubmitting}>
             {isSubmitting ? <Spinner as="span" animation="border" size="sm" /> : 'Delete Event'}
           </Button>
           <Button variant="secondary" onClick={() => setShowEventModal(false)}>
