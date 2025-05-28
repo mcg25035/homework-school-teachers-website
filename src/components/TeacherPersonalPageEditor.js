@@ -35,13 +35,13 @@ const markdownCheatsheet = `
 ![Alt text](https://via.placeholder.com/150)
 
 **Code:**
-Inline \`code\`
-\`\`\`
+Inline \\\`code\\\`
+\\\`\\\`\\\`
 // Code block
 function greet() {
   console.log("Hello!");
 }
-\`\`\`
+\\\`\\\`\\\`
 
 **Blockquotes:**
 > This is a blockquote.
@@ -72,7 +72,7 @@ This is some initial **Markdown** content. You can edit it freely.
     console.log('Markdown Content:', markdownContent);
     // In a real app, this would make an API call:
     // await saveTeacherPageApi({ userId: user.user_id, content: markdownContent });
-    alert('Content logged to console! (No backend integration yet)');
+    alert("Content logged to console. No backend integration yet.");
   };
 
   return (
