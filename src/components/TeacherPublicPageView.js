@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
-import { useParams } from 'react-router-dom'; // Or expect teacher_user_id as a prop
+// import { useParams } from 'react-router-dom'; // Or expect teacher_user_id as a prop // REMOVED
 import { useTeacherPage } from '../api'; // Adjust path if necessary
 import { Alert, Spinner, Container, Card } from 'react-bootstrap';
-import ReactMarkdown from 'react-markdown'; // Will be used later
+import ReactMarkdown from 'react-markdown';
 
 // In src/components/TeacherPublicPageView.js
 
@@ -32,14 +32,10 @@ const substituteVariables = (content, variables) => {
   return processedContent;
 };
 
-function TeacherPublicPageView({ teacherUserIdFromProp }) { // Can also get from URL
-  // If using URL params (e.g. /teacher/:teacherId/page)
-  // const { teacherId: teacherIdFromUrl } = useParams();
-  // const teacher_user_id = teacherUserIdFromProp || parseInt(teacherIdFromUrl);
-
+function TeacherPublicPageView({ teacherUserIdFromProp }) { 
   // For now, assume teacherUserIdFromProp is provided and valid
   // In a real app, you'd need robust logic to determine the ID
-  const teacher_user_id = teacherUserIdFromProp;
+  const teacher_user_id = teacherUserIdFromProp; // Confirmed: teacher_user_id comes from prop
 
   const {
     data: teacherPageData,
