@@ -52,14 +52,14 @@ function greet() {
 
 function TeacherPersonalPageEditor({ user }) { // user prop might be used later for saving
   const [markdownContent, setMarkdownContent] = useState(
-    '# Welcome to Your Personal Page!
+    `# Welcome to Your Personal Page!
 
 This is some initial **Markdown** content. You can edit it freely.
 
 - List item 1
 - List item 2
 
-[Learn more about Markdown!](https://www.markdownguide.org)'
+[Learn more about Markdown!](https://www.markdownguide.org)`
   );
   const [showCheatsheet, setShowCheatsheet] = useState(false);
 
