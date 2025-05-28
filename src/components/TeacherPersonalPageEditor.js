@@ -44,14 +44,24 @@ function TeacherPersonalPageEditor() {
   const [newCustomKeyName, setNewCustomKeyName] = useState('');
 
   useEffect(() => {
+    // This effect is responsible for initializing or resetting the form
+    // when the primary data source (teacherPageData) or the user changes.
     if (user && teacherPageData) {
+      // Data is available for the current user
       setMarkdownContent(teacherPageData.content || `# Welcome, ${user.username}!\n\nStart editing your personal page content here.`);
       setPageVariables(teacherPageData.variables && typeof teacherPageData.variables === 'object' ? teacherPageData.variables : {});
-    } else if (user && !isLoadingPageDataOriginal && !isErrorPageData && !teacherPageData) {
+    } else if (user && !teacherPageData && !isLoadingPageDataOriginal && !isErrorPageData) {
+      // User is loaded, no data, not currently loading, and no error fetching.
+      // This typically means it's a new page for the user.
       setMarkdownContent(`# Welcome, ${user.username}!\n\nStart editing your personal page content here.`);
       setPageVariables({});
     }
-  }, [user, teacherPageData, isLoadingPageDataOriginal, isErrorPageData]);
+    // Explicitly not including isLoadingPageDataOriginal or isErrorPageData in the dependency array here.
+    // We only want to re-initialize the form fields if the actual 'user' or 'teacherPageData' identity changes,
+    // or if 'teacherPageData' transitions from undefined to defined (or vice-versa if user logs out etc).
+    // Local edits to markdownContent or pageVariables should not be wiped out by this effect
+    // simply because a loading state changed but the core data (teacherPageData) did not.
+  }, [user, teacherPageData]); // Key dependencies for re-initialization.
 
   const handleEditorChange = ({ text }) => {
     setMarkdownContent(text);
@@ -215,7 +225,11 @@ function TeacherPersonalPageEditor() {
                 />
               </Col>
               <Col sm={2}>
-                <Button variant="outline-danger" size="sm" onClick={() => handleRemoveVariable(key)}>Remove</Button>
+                {/* This check is technically redundant if customVariablesToDisplay is correctly filtered,
+                    but provides an explicit safeguard at the button rendering site. */}
+                {!PREDEFINED_VARIABLES.includes(key) && (
+                  <Button variant="outline-danger" size="sm" onClick={() => handleRemoveVariable(key)}>Remove</Button>
+                )}
               </Col>
             </Form.Group>
           ))}
