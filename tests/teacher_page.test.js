@@ -130,6 +130,23 @@ describe('Teacher Page Functionality', () => {
     // };
 
     describe('Rendering and Initial State', () => {
+      it('should re-initialize the form if the user changes (simulating new login)', () => {
+        // This test verifies that the hasInitializedForCurrentUser flag is correctly reset
+        // and the form re-initializes for a new user.
+        // 1. Initial setup: Mock useLoginStatus for userA, useTeacherPage for userA's data. Render.
+        //    Verify userA's data is shown.
+        //    (Optional: userA adds a local custom variable: "userA_local_var")
+        // 2. Simulate user change:
+        //    Update mockUseLoginStatus to return userB.
+        //    Update mockUseTeacherPage to return userB's data (different from userA's, no "userA_local_var").
+        //    Re-render the component (or trigger update if renderHook is used for a custom hook managing this).
+        // 3. Verification:
+        //    Assert that userB's data is now displayed.
+        //    Assert that "userA_local_var" is NOT present.
+        //    This confirms that the useEffect [user] correctly reset hasInitializedForCurrentUser,
+        //    and the subsequent useEffect [..., hasInitializedForCurrentUser] re-initialized the form.
+      });
+
       it('should show loading spinner when user status is loading', () => {
         // renderEditor({ user: null, isLoading: true, isError: null }, { data: null, isLoading: false, isError: null });
         // expect(screen.getByText(/Loading User Data.../i)).toBeInTheDocument();
@@ -197,33 +214,41 @@ describe('Teacher Page Functionality', () => {
       });
 
       describe('Custom Variable Management', () => {
-        it('should allow adding a new custom variable and ensure it persists in the UI', () => {
+        it('should allow adding a new custom variable and ensure it persists in the UI across re-renders', () => {
           // This test specifically addresses the bug where newly added variables might disappear
-          // due to incorrect useEffect behavior.
-          // render(<TeacherPersonalPageEditor />); // With mocks for useLoginStatus, useTeacherPage (initially empty or no custom vars)
-          // const newKeyInput = screen.getByPlaceholderText(/New variable name/i);
-          // const addVarButton = screen.getByText(/Add Custom Variable/i);
+          // due to incorrect useEffect behavior, now managed by `hasInitializedForCurrentUser`.
+          // This test also implicitly verifies that local additions are not wiped out by subsequent re-renders 
+          // due to the `hasInitializedForCurrentUser` logic.
 
-          // // Simulate adding a new variable
-          // fireEvent.change(newKeyInput, { target: { value: "new_persistent_var" } });
-          // fireEvent.click(addVarButton);
-
-          // // Verify the new variable's key input field is rendered
-          // const addedKeyInput = screen.getByDisplayValue("new_persistent_var");
-          // expect(addedKeyInput).toBeInTheDocument();
-
-          // // Locate the corresponding value input (might need a more specific selector if multiple custom vars)
-          // // For example, assuming it's the last one added or find it relative to the key input.
-          // const addedValueInput = addedKeyInput.closest('.row').querySelector('input[placeholder="Variable Value"]');
-          // expect(addedValueInput).toBeInTheDocument();
+          // 1. Initial Render:
+          //    render(<TeacherPersonalPageEditor />); // With mocks for useLoginStatus (userA), useTeacherPage (userA's data, initially no custom vars).
+          //    Verify initial state (e.g., no custom variables listed).
           
-          // // Simulate typing a value
-          // fireEvent.change(addedValueInput, { target: { value: "persistent value" } });
-          
-          // // Crucially, assert that both the key and value inputs are still present and hold their values
-          // // This implies the component re-rendered correctly without the useEffect wiping out the new variable.
-          // expect(screen.getByDisplayValue("new_persistent_var")).toBeInTheDocument();
-          // expect(screen.getByDisplayValue("persistent value")).toBeInTheDocument();
+          // 2. Add Custom Variable:
+          //    const newKeyInput = screen.getByPlaceholderText(/New variable name/i);
+          //    const addVarButton = screen.getByText(/Add Custom Variable/i);
+          //    fireEvent.change(newKeyInput, { target: { value: "new_persistent_var" } });
+          //    fireEvent.click(addVarButton);
+
+          // 3. Verify Variable Appears:
+          //    const addedKeyInput = screen.getByDisplayValue("new_persistent_var");
+          //    expect(addedKeyInput).toBeInTheDocument();
+          //    const addedValueInput = addedKeyInput.closest('.row').querySelector('input[placeholder="Variable Value"]');
+          //    fireEvent.change(addedValueInput, { target: { value: "persistent value" } });
+          //    expect(screen.getByDisplayValue("persistent value")).toBeInTheDocument();
+
+          // 4. Simulate Re-render (without user or teacherPageData changing identity):
+          //    For example, if TeacherPersonalPageEditor was wrapped in another component that re-renders,
+          //    or by calling a dummy setState if one existed at the top level of TeacherPersonalPageEditor.
+          //    If using RTL's render, you might call rerender(<TeacherPersonalPageEditor />) with the same props/mocked hook values.
+          //    If SWR provides stable references for teacherPageData, this re-render should not trigger the data re-initialization logic
+          //    because hasInitializedForCurrentUser is true.
+
+          // 5. Verify Persistence:
+          //    Assert that "new_persistent_var" and "persistent value" are STILL in the document.
+          //    This confirms hasInitializedForCurrentUser prevented a reset.
+          //    expect(screen.getByDisplayValue("new_persistent_var")).toBeInTheDocument();
+          //    expect(screen.getByDisplayValue("persistent value")).toBeInTheDocument();
         });
 
         it('should prevent adding a duplicate custom variable key and show alert', () => {

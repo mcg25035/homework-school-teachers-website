@@ -42,26 +42,61 @@ function TeacherPersonalPageEditor() {
   const [saveErrorMessage, setSaveErrorMessage] = useState('');
   
   const [newCustomKeyName, setNewCustomKeyName] = useState('');
+  // console.log('[Render] Initial or current newCustomKeyName state:', newCustomKeyName); 
+
+  const [hasInitializedForCurrentUser, setHasInitializedForCurrentUser] = useState(false);
 
   useEffect(() => {
-    // This effect is responsible for initializing or resetting the form
-    // when the primary data source (teacherPageData) or the user changes.
-    if (user && teacherPageData) {
-      // Data is available for the current user
-      setMarkdownContent(teacherPageData.content || `# Welcome, ${user.username}!\n\nStart editing your personal page content here.`);
-      setPageVariables(teacherPageData.variables && typeof teacherPageData.variables === 'object' ? teacherPageData.variables : {});
-    } else if (user && !teacherPageData && !isLoadingPageDataOriginal && !isErrorPageData) {
-      // User is loaded, no data, not currently loading, and no error fetching.
-      // This typically means it's a new page for the user.
-      setMarkdownContent(`# Welcome, ${user.username}!\n\nStart editing your personal page content here.`);
+    // This effect resets the initialization flag when the user changes.
+    // This ensures that if a different user logs in, the form will re-initialize with their data.
+    if (user) {
+      // console.log('[useEffect userChanged] User changed or loaded. Resetting hasInitializedForCurrentUser for user:', user.user_id);
+      setHasInitializedForCurrentUser(false); 
+    } else {
+      // User logged out, clear form and reset flag
+      // console.log('[useEffect userChanged] User logged out. Clearing form and resetting hasInitializedForCurrentUser.');
+      setMarkdownContent('');
       setPageVariables({});
+      setHasInitializedForCurrentUser(false);
     }
-    // Explicitly not including isLoadingPageDataOriginal or isErrorPageData in the dependency array here.
-    // We only want to re-initialize the form fields if the actual 'user' or 'teacherPageData' identity changes,
-    // or if 'teacherPageData' transitions from undefined to defined (or vice-versa if user logs out etc).
-    // Local edits to markdownContent or pageVariables should not be wiped out by this effect
-    // simply because a loading state changed but the core data (teacherPageData) did not.
-  }, [user, teacherPageData]); // Key dependencies for re-initialization.
+  }, [user]); // Only re-run if the user object itself changes
+
+  useEffect(() => {
+    // console.log('[useEffect dataLoad] Running data load effect. Deps:', { user, teacherPageData, isLoadingPageDataOriginal, isErrorPageData, hasInitializedForCurrentUser });
+    
+    if (user && !hasInitializedForCurrentUser) {
+      if (teacherPageData) {
+        // console.log('[useEffect dataLoad] User exists, NOT YET initialized, teacherPageData exists. Initializing form from teacherPageData for user:', user.user_id);
+        setMarkdownContent(teacherPageData.content || `# Welcome, ${user.username}!\n\nStart editing your personal page content here.`);
+        setPageVariables(prevVars => {
+          const newVars = teacherPageData.variables && typeof teacherPageData.variables === 'object' ? teacherPageData.variables : {};
+          // console.log('[useEffect dataLoad] setPageVariables from teacherPageData. Prev:', prevVars, 'New:', newVars);
+          return newVars;
+        });
+        setHasInitializedForCurrentUser(true);
+      } else if (!isLoadingPageDataOriginal && !isErrorPageData) {
+        // User exists, not initialized, no teacherPageData, not loading, and no error.
+        // This is for a new page for the current user.
+        // console.log('[useEffect dataLoad] User exists, NOT YET initialized, no teacherPageData (and not loading/error). Initializing empty form for user:', user.user_id);
+        setMarkdownContent(`# Welcome, ${user.username}!\n\nStart editing your personal page content here.`);
+        setPageVariables(prevVars => {
+          // console.log('[useEffect dataLoad] setPageVariables to empty for new page. Prev:', prevVars);
+          return {};
+        });
+        setHasInitializedForCurrentUser(true);
+      } else {
+        // console.log('[useEffect dataLoad] User exists, NOT YET initialized, but still loading or error state for teacherPageData. Waiting.');
+      }
+    } else if (user && hasInitializedForCurrentUser) {
+        // console.log('[useEffect dataLoad] Data already initialized for user:', user.user_id, ". Subsequent teacherPageData changes might be handled by SWR revalidation or ignored here to preserve local edits unless user changes.");
+        // If teacherPageData changes identity *after* initialization (e.g. SWR revalidates and provides a new object),
+        // this logic currently does NOT automatically overwrite local edits. This is usually desired.
+        // If forced re-sync is needed on every teacherPageData change, `hasInitializedForCurrentUser` logic would need adjustment
+        // or a separate effect. For now, this protects local edits.
+    } else if (!user) {
+        // console.log('[useEffect dataLoad] No user, skipping data load initialization.');
+    }
+  }, [user, teacherPageData, isLoadingPageDataOriginal, isErrorPageData, hasInitializedForCurrentUser]);
 
   const handleEditorChange = ({ text }) => {
     setMarkdownContent(text);
@@ -72,17 +107,34 @@ function TeacherPersonalPageEditor() {
   };
 
   const handleAddVariable = () => {
+    // console.log('[handleAddVariable] Called. Current newCustomKeyName:', newCustomKeyName);
+    // console.log('[handleAddVariable] Current pageVariables (before add):', JSON.parse(JSON.stringify(pageVariables)));
+
     const trimmedKey = newCustomKeyName.trim().replace(/\s+/g, '_').toLowerCase();
+    // console.log('[handleAddVariable] Trimmed key:', trimmedKey);
+
     if (!trimmedKey) {
+      // console.log('[handleAddVariable] Trimmed key is empty. Alerting and returning.');
       alert("Please enter a name for the new custom variable.");
       return;
     }
     if (PREDEFINED_VARIABLES.includes(trimmedKey) || pageVariables.hasOwnProperty(trimmedKey)) {
+      // console.log('[handleAddVariable] Trimmed key is predefined or already exists. Alerting and returning.');
       alert(`Variable key "${trimmedKey}" is either predefined or already exists. Please choose a unique name.`);
       return;
     }
-    setPageVariables(prev => ({ ...prev, [trimmedKey]: '' }));
+
+    // console.log('[handleAddVariable] Attempting to setPageVariables with new key:', trimmedKey);
+    setPageVariables(prev => {
+      // console.log('[handleAddVariable] setPageVariables callback. Prev pageVariables:', JSON.parse(JSON.stringify(prev)));
+      const newState = { ...prev, [trimmedKey]: '' };
+      // console.log('[handleAddVariable] setPageVariables callback. New pageVariables:', JSON.parse(JSON.stringify(newState)));
+      return newState;
+    });
+    
+    // console.log('[handleAddVariable] Called setNewCustomKeyName to empty string.');
     setNewCustomKeyName(''); 
+    // console.log('[handleAddVariable] After setNewCustomKeyName, newCustomKeyName should be empty now.');
   };
   
   const handleRemoveVariable = (keyToRemove) => {
@@ -158,6 +210,9 @@ function TeacherPersonalPageEditor() {
   const customVariablesToDisplay = Object.entries(pageVariables).filter(
     ([key]) => !PREDEFINED_VARIABLES.includes(key)
   );
+  // console.log('[Render] pageVariables state before render:', JSON.parse(JSON.stringify(pageVariables)));
+  // console.log('[Render] customVariablesToDisplay derived:', customVariablesToDisplay.map(cv => cv[0]));
+
 
   return (
     <Container fluid className="mt-3">
@@ -240,7 +295,10 @@ function TeacherPersonalPageEditor() {
                 type="text" 
                 placeholder="New variable name" 
                 value={newCustomKeyName}
-                onChange={(e) => setNewCustomKeyName(e.target.value)} 
+                onChange={(e) => {
+                  // console.log('[Input onChange] newCustomKeyName changing from:', newCustomKeyName, 'to:', e.target.value);
+                  setNewCustomKeyName(e.target.value);
+                }} 
               />
             </Col>
             <Col xs={12} sm={6}>
