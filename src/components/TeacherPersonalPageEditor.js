@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import MdEditor from 'react-markdown-editor-lite';
 import ReactMarkdown from 'react-markdown';
 import 'react-markdown-editor-lite/lib/index.css';
-import { Container, Card, Button, Collapse, Alert, Form, Spinner, Row, Col } from 'react-bootstrap';
+import { Container, Card, Button, Collapse, Alert, Form, Spinner, Row, Col, InputGroup } from 'react-bootstrap'; // Added InputGroup
 import { useLoginStatus, useTeacherPage, updateTeacherPage } from '../api';
 
 const markdownCheatsheet = `
@@ -104,6 +104,10 @@ function TeacherPersonalPageEditor() {
 
   const handleVariableChange = (key, value) => {
     setPageVariables(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleClearPredefinedVariable = (variableKey) => {
+    setPageVariables(prev => ({ ...prev, [variableKey]: "" }));
   };
 
   const handleAddVariable = () => {
@@ -250,12 +254,21 @@ function TeacherPersonalPageEditor() {
             <Form.Group as={Row} className="mb-3" controlId={`form-predefined-${key}`} key={key}>
               <Form.Label column sm={3} style={{ textTransform: 'capitalize' }}>{key.replace(/_/g, ' ')}</Form.Label>
               <Col sm={9}>
-                <Form.Control
-                  type="text"
-                  value={pageVariables[key] || ''}
-                  onChange={(e) => handleVariableChange(key, e.target.value)}
-                  placeholder={`Enter ${key.replace(/_/g, ' ')}`}
-                />
+                <InputGroup>
+                  <Form.Control
+                    type="text"
+                    value={pageVariables[key] || ''}
+                    onChange={(e) => handleVariableChange(key, e.target.value)}
+                    placeholder={`Enter ${key.replace(/_/g, ' ')}`}
+                  />
+                  <Button 
+                    variant="outline-secondary" 
+                    onClick={() => handleClearPredefinedVariable(key)}
+                    aria-label={`Clear ${key.replace(/_/g, ' ')}`}
+                  >
+                    Clear
+                  </Button>
+                </InputGroup>
               </Col>
             </Form.Group>
           ))}

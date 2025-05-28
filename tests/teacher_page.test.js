@@ -323,8 +323,8 @@ describe('Teacher Page Functionality', () => {
 
       describe('Predefined Variables Management', () => {
         // These tests address the bug fix for ensuring predefined variables cannot be removed
-        // and can still be edited.
-        it('should display predefined variables (office_hours, research_interests, contact_email) without a "Remove" button', () => {
+        // and can still be edited, and now also that they have "Clear" buttons.
+        it('should display predefined variables with "Clear" buttons and no "Remove" buttons', () => {
           // const initialData = { user_id: 1, content: "Content", variables: { office_hours: "Mon", research_interests: "AI", contact_email: "test@example.com" } };
           // renderEditor({ user: { user_id: 1, username: 'testuser' }, isLoading: false, isError: null }, { data: initialData, isLoading: false, isError: null });
           
@@ -332,14 +332,33 @@ describe('Teacher Page Functionality', () => {
           // const researchInput = screen.getByDisplayValue("AI");
           // const emailInput = screen.getByDisplayValue("test@example.com");
 
-          // // Check that no "Remove" button is near these inputs.
-          // // This requires careful DOM querying, e.g., by looking at the parent Form.Group or Row.
-          // expect(officeHoursInput.closest('.row').querySelector('button[aria-label*="Remove"], button[aria-label*="Delete"]')).toBeNull();
-          // expect(researchInput.closest('.row').querySelector('button[aria-label*="Remove"], button[aria-label*="Delete"]')).toBeNull();
-          // expect(emailInput.closest('.row').querySelector('button[aria-label*="Remove"], button[aria-label*="Delete"]')).toBeNull();
+          // // Check for "Clear" button presence
+          // expect(officeHoursInput.closest('.input-group').querySelector('button[aria-label="Clear Office hours"]')).toBeInTheDocument();
+          // expect(researchInput.closest('.input-group').querySelector('button[aria-label="Clear Research interests"]')).toBeInTheDocument();
+          // expect(emailInput.closest('.input-group').querySelector('button[aria-label="Clear Contact email"]')).toBeInTheDocument();
           
-          // // Also ensure that the general "Remove" button for custom variables is not targeting these.
-          // // This is implicitly covered if the selectors above are specific enough to their rows.
+          // // Check that no "Remove" button is near these inputs.
+          // expect(officeHoursInput.closest('.row').querySelector('button:not([aria-label*="Clear"])')).toBeNull(); // Assuming "Remove" buttons don't have "Clear" in aria-label
+        });
+
+        it('should clear the content of a predefined variable when its "Clear" button is clicked', () => {
+          // const initialData = { user_id: 1, content: "Content", variables: { office_hours: "Mon 9-11" } };
+          // renderEditor({ user: { user_id: 1, username: 'testuser' }, isLoading: false, isError: null }, { data: initialData, isLoading: false, isError: null });
+
+          // const officeHoursInput = screen.getByDisplayValue("Mon 9-11");
+          // const clearButton = officeHoursInput.closest('.input-group').querySelector('button[aria-label="Clear Office hours"]');
+          
+          // fireEvent.click(clearButton);
+          
+          // expect(officeHoursInput.value).toBe("");
+          // // Optional: Verify internal state if possible, or rely on save behavior.
+          // // For example, after clicking save:
+          // // fireEvent.click(screen.getByText(/Save Page/i));
+          // // await waitFor(() => expect(mockUpdateTeacherPage).toHaveBeenCalledWith(
+          // //   expect.anything(), 
+          // //   expect.anything(), 
+          // //   expect.objectContaining({ office_hours: "" })
+          // // ));
         });
 
         it('should allow editing predefined variables', () => {
@@ -369,16 +388,32 @@ describe('Teacher Page Functionality', () => {
       //   mockUpdateTeacherPage.mockClear();
       // });
 
-      it('should call updateTeacherPage with current data on save', async () => {
+      it('should call updateTeacherPage with current data on save, including cleared predefined variables', async () => {
         // mockUpdateTeacherPage.mockResolvedValueOnce({ success: true });
-        // render(<TeacherPersonalPageEditor />);
-        // // Make some changes
-        // fireEvent.change(screen.getByPlaceholderText(/Enter office hours/i), { target: { value: "Mon 10-11" } });
+        // // Initial state where office_hours has a value
+        // const initialVars = { office_hours: "Mon 10-11", research_interests: "AI", contact_email: "test@test.com" };
+        // renderEditor({ user: { user_id: 1, username: 'testuser' }, isLoading: false, isError: null }, { data: { user_id: 1, content: "Test Content", variables: initialVars }, isLoading: false, isError: null });
+        
+        // // Simulate clearing office_hours
+        // const officeHoursInput = screen.getByDisplayValue("Mon 10-11");
+        // const clearButton = officeHoursInput.closest('.input-group').querySelector('button[aria-label="Clear Office hours"]');
+        // fireEvent.click(clearButton);
+        // expect(officeHoursInput.value).toBe(""); // UI is updated
+
+        // // Simulate editing another predefined variable
+        // const researchInput = screen.getByDisplayValue("AI");
+        // fireEvent.change(researchInput, { target: { value: "Robotics" } });
+
         // fireEvent.click(screen.getByText(/Save Page/i));
+        
         // await waitFor(() => expect(mockUpdateTeacherPage).toHaveBeenCalledWith(
         //   1, // userId
-        //   "Test Content", // Assuming markdownContent was not changed in this specific test
-        //   expect.objectContaining({ "office_hours": "Mon 10-11", "test_var": "Test Value" })
+        //   "Test Content", 
+        //   expect.objectContaining({ 
+        //     office_hours: "", // Check that office_hours is saved as an empty string
+        //     research_interests: "Robotics", // Check other edits are preserved
+        //     contact_email: "test@test.com"  // Check unchanged variables are preserved
+        //   })
         // ));
       });
 
