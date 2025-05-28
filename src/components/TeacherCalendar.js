@@ -15,10 +15,12 @@ const formatDateTimeForAPI = (date) => {
 };
 
 function TeacherCalendar({ user }) { // Removed setActiveComponent if not used internally
-  // State for calendar view range
-  const [dateRange, setDateRange] = useState({
-    start: moment().startOf('month').toDate(),
-    end: moment().endOf('month').toDate(),
+  const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date()); // New state for calendar's displayed date
+
+  // Renamed dateRange to apiFetchRange, stores start/end for API fetching
+  const [apiFetchRange, setApiFetchRange] = useState({
+    start: moment(currentCalendarDate).startOf('month').format('YYYY-MM-DD'),
+    end: moment(currentCalendarDate).endOf('month').format('YYYY-MM-DD'),
   });
 
   // Fetch events using the API hook
@@ -29,10 +31,8 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
     revalidateEvents // To manually trigger re-fetch
   } = useCalendarEvents({ 
     userId: user ? user.user_id : null, 
-    // Pass date range to fetch only events in the current view
-    // Format them as YYYY-MM-DD for the API's start_date and end_date params
-    startDate: moment(dateRange.start).format('YYYY-MM-DD'),
-    endDate: moment(dateRange.end).format('YYYY-MM-DD'),
+    startDate: apiFetchRange.start, // Use apiFetchRange
+    endDate: apiFetchRange.end,     // Use apiFetchRange
   });
 
   const [showEventModal, setShowEventModal] = useState(false);
@@ -57,17 +57,37 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
     }));
   }, [fetchedEvents]);
 
-  const handleRangeChange = useCallback((range) => {
-    // range can be an array of dates (week/day view) or an object {start, end} (month view)
-    if (Array.isArray(range)) {
-      setDateRange({ start: moment(range[0]).toDate(), end: moment(range[range.length - 1]).endOf('day').toDate() });
-    } else if (range.start && range.end) {
-      // For month view, `range` is an object like { start: Date, end: Date }
-      // The end date from react-big-calendar for month view is often the start of the last day shown.
-      // Adjust to ensure we capture the whole range.
-      setDateRange({ start: moment(range.start).toDate(), end: moment(range.end).endOf('day').toDate() });
-    }
+  // Called when calendar's built-in navigation buttons are clicked
+  const handleNavigate = useCallback((newDate) => {
+    setCurrentCalendarDate(new Date(newDate));
   }, []);
+
+  // Called when the visible range of the calendar changes
+  const handleRangeChange = useCallback((rangeInput, view) => {
+    let startMoment, endMoment;
+    if (Array.isArray(rangeInput)) { // For week and day views
+      startMoment = moment(rangeInput[0]);
+      endMoment = moment(rangeInput[rangeInput.length - 1]);
+    } else { // For month and agenda views (rangeInput is an object {start, end})
+      startMoment = moment(rangeInput.start);
+      endMoment = moment(rangeInput.end);
+    }
+    
+    let effectiveView = view || 'month'; // Default to month if view is undefined
+
+    setApiFetchRange({
+      start: startMoment.startOf(effectiveView === 'agenda' ? 'day' : effectiveView).format('YYYY-MM-DD'),
+      end: endMoment.endOf(effectiveView === 'agenda' ? 'day' : effectiveView).format('YYYY-MM-DD'),
+    });
+  }, []);
+
+  // Synchronize apiFetchRange with currentCalendarDate
+  useEffect(() => {
+    setApiFetchRange({
+        start: moment(currentCalendarDate).startOf('month').format('YYYY-MM-DD'),
+        end: moment(currentCalendarDate).endOf('month').format('YYYY-MM-DD'),
+    });
+  }, [currentCalendarDate]);
 
 
   const handleSelectSlot = useCallback(({ start, end }) => {
@@ -193,10 +213,11 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
                 selectable
                 onSelectSlot={handleSelectSlot}
                 onSelectEvent={handleSelectEvent}
-                onRangeChange={handleRangeChange} // Fetch new events when range changes
-                defaultView="month"
+                onNavigate={handleNavigate} 
+                onRangeChange={handleRangeChange} 
+                date={currentCalendarDate} 
+                defaultView="month" 
                 views={['month', 'week', 'day', 'agenda']}
-                date={dateRange.start} // Control current date view
               />
             )}
           </div>
