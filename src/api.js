@@ -368,6 +368,77 @@ export async function deletePermission(permissionId) {
   return performMutation(`${API_ENDPOINT}/permission.php?permission_id=${permissionId}`, 'DELETE');
 }
 
+// Teacher Page API
+export function useTeacherPage(userId) {
+  const numericUserId = parseInt(userId, 10);
+  const url = `${API_ENDPOINT}/teacher_page.php?user_id=${numericUserId}`;
+  const { data: apiResponse, error, mutate } = useSWR(url, fetcher);
+
+  const isLoading = !error && apiResponse === undefined;
+  let responseData = null; // This will be the 'data' object returned by the hook
+  let hookError = null;    // This will be the 'isError' object returned by the hook
+
+  if (isLoading) {
+    // Data is loading, responseData remains null or undefined
+    responseData = undefined;
+  } else if (error) {
+    // SWR fetcher encountered an error (e.g., network issue)
+    responseData = { user_id: numericUserId, content: null, variables: {} }; // Provide default structure
+    hookError = error;
+  } else if (apiResponse) {
+    // We have a response from the API
+    if (apiResponse.success) {
+      if (apiResponse.data && apiResponse.data.content !== undefined) {
+        // API success and page data exists
+        responseData = {
+          ...apiResponse.data, // contains content, potentially user_id and variables
+          user_id: parseInt(apiResponse.data.user_id || numericUserId, 10), // Ensure user_id from data or param
+          variables: typeof apiResponse.data.variables === 'string'
+            ? JSON.parse(apiResponse.data.variables) // Parse if string
+            : (apiResponse.data.variables || {}),   // Use as is or default to empty object
+        };
+      } else {
+        // API success but no specific page data (e.g., new teacher, page not yet created)
+        responseData = { user_id: numericUserId, content: null, variables: {} };
+      }
+    } else {
+      // API returned { success: false, message: "..." }
+      responseData = { user_id: numericUserId, content: null, variables: {} }; // Provide default structure
+      hookError = new Error(apiResponse.message || `Failed to fetch teacher page for user ${numericUserId}. API returned success:false.`);
+    }
+  } else {
+    // Fallback for any other unexpected state (apiResponse is null/undefined without error)
+    responseData = { user_id: numericUserId, content: null, variables: {} }; // Default structure
+    hookError = new Error(`Unexpected response state for teacher page user ${numericUserId}.`);
+  }
+
+  return {
+    data: responseData, // This is the 'data' object from the API response, or default structure.
+    isLoading: isLoading,
+    isError: hookError, // null if no error, Error object otherwise.
+    mutate,
+  };
+}
+
+export async function updateTeacherPage(userId, content, variables) {
+  const numericUserId = parseInt(userId, 10);
+  const revalidateKey = `${API_ENDPOINT}/teacher_page.php?user_id=${numericUserId}`;
+  
+  const payload = {
+    content: content, // string
+    variables: JSON.stringify(variables || {}), // JSON stringified string
+  };
+
+  // The API infers user_id from the session for PUT requests to /teacher_page.php
+  // The revalidateKey ensures the correct user's page cache is updated.
+  return performMutation(
+    `${API_ENDPOINT}/teacher_page.php`, // URL for PUT
+    'PUT',
+    payload,
+    revalidateKey
+  );
+}
+
 // (Make sure this is placed before the last export default or at a similar appropriate location with other API groups)
 
 // Calendar API
