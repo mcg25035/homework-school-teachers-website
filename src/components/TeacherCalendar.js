@@ -51,8 +51,7 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
   // Transform fetched events for react-big-calendar
   const calendarEvents = useMemo(() => {
     return fetchedEvents.map(event => ({
-      ...event,
-      id: event.event_id, // Map event_id to id
+      ...event, // This will spread the 'id' field from the backend correctly
       start: new Date(event.start_datetime), // Convert string to Date object
       end: new Date(event.end_datetime),   // Convert string to Date object
     }));
@@ -143,12 +142,12 @@ function TeacherCalendar({ user }) { // Removed setActiveComponent if not used i
   };
   
   const handleDeleteEvent = async () => {
-    const eventIdToDelete = selectedEvent ? (selectedEvent.event_id || selectedEvent.id) : null;
+    const eventIdToDelete = selectedEvent ? selectedEvent.id : null; // Directly use .id
 
     // Updated guard clause
-    if (!selectedEvent || !eventIdToDelete) {
-      console.error('No valid event ID (checked event_id then id) found for deletion. selectedEvent:', selectedEvent);
-      setModalError('Cannot delete event: Critical Event ID is missing.'); // Error for modal
+    if (!selectedEvent || typeof eventIdToDelete === 'undefined' || eventIdToDelete === null) { // More robust check
+      console.error('No valid event ID (selectedEvent.id) found for deletion. selectedEvent:', selectedEvent);
+      setModalError('Cannot delete event: Critical Event ID is missing.');
       return;
     }
     
