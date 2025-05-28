@@ -38,10 +38,10 @@ function TeacherPublicPageView({ teacherUserIdFromProp }) {
   const teacher_user_id = teacherUserIdFromProp; // Confirmed: teacher_user_id comes from prop
 
   const {
-    data: teacherPageData,
+    data: teacherPageData, // This is { user_id, content, variables } or default from useTeacherPage
     isLoading,
     isError,
-    error,
+    error, // This is the error object/message from useTeacherPage
   } = useTeacherPage(teacher_user_id);
 
   if (isLoading) {
@@ -58,26 +58,17 @@ function TeacherPublicPageView({ teacherUserIdFromProp }) {
     return (
       <Container className="mt-3">
         <Alert variant="danger">
-          Error loading teacher page: {error?.message || 'Unknown error'}
+          Error loading teacher page: {error?.message || 'An unknown error occurred.'}
         </Alert>
       </Container>
     );
   }
 
-  if (!teacherPageData || !teacherPageData.success) {
-    return (
-      <Container className="mt-3">
-        <Alert variant="warning">
-          Teacher page data could not be retrieved. Message: {teacherPageData?.message || 'No data available.'}
-        </Alert>
-      </Container>
-    );
-  }
+  // If not loading and no error, teacherPageData should be available
+  // (useTeacherPage provides a default structure if API data is missing but not an error)
+  const { content: rawContent, variables } = teacherPageData || { content: null, variables: {} };
   
-  // teacherPageData.data should contain { user_id, content, variables }
-  const { content: rawContent, variables } = teacherPageData.data || { content: '', variables: {} };
-
-  // Placeholder for substitution - will be enhanced in the next step
+  // Substitute variables (this part is fine)
   const processedContent = substituteVariables(rawContent, variables);
 
   return (
@@ -85,13 +76,12 @@ function TeacherPublicPageView({ teacherUserIdFromProp }) {
       <Card>
         <Card.Header as="h4">Teacher's Page</Card.Header> {/* Consider making title dynamic if available */}
         <Card.Body>
-          {teacherPageData.data && teacherPageData.data.content !== null ? (
-            // Render the processed content using ReactMarkdown
-            // The fallback message is handled if processedContent is null/empty due to rawContent being null/empty.
-            <ReactMarkdown>{processedContent || "This teacher has not set up their page content yet."}</ReactMarkdown>
+          {(rawContent !== null && rawContent.trim() !== '') ? (
+            <ReactMarkdown>{processedContent}</ReactMarkdown>
           ) : (
-            <Alert variant="info">This teacher has not set up their page content yet.</Alert>
+            <Alert variant="info">This teacher has not set up their page content yet, or the content is empty.</Alert>
           )}
+          {/* Variables debugging display is now removed */}
         </Card.Body>
       </Card>
     </Container>
