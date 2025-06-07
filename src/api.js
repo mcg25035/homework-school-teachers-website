@@ -1,7 +1,19 @@
 import useSWR, { mutate } from 'swr';
 
-const fetcher = (...args) => {
-  return fetch(...args).then(res => res.json());
+const fetcher = async (url) => {
+  const userRole = localStorage.getItem('userRole');
+  const headers = {};
+  if (userRole) {
+    headers['X-User-Role'] = userRole;
+  }
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    const error = new Error('An error occurred while fetching the data.');
+    error.info = await response.json();
+    error.status = response.status;
+    throw error;
+  }
+  return response.json();
 };
 
 // Conditionally set API_ENDPOINT based on environment
@@ -13,10 +25,19 @@ const API_ENDPOINT = process.env.NODE_ENV === 'development'
 // Added optional revalidateKey parameter
 async function performMutation(url, method, data, revalidateKey = null) {
   try {
+    const token = localStorage.getItem('token'); // Get token from localStorage
+    const userRole = localStorage.getItem('userRole');
     const options = {
       method: method,
       headers: {},
     };
+
+    if (token) {
+      options.headers['Authorization'] = `Bearer ${token}`;
+    }
+    if (userRole) {
+      options.headers['X-User-Role'] = userRole;
+    }
 
     if (data) {
       if (data instanceof FormData) {
@@ -70,17 +91,57 @@ async function performMutation(url, method, data, revalidateKey = null) {
   }
 }
 
+export const uploadFile = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = localStorage.getItem('token'); // Get token from localStorage
+    const userRole = localStorage.getItem('userRole');
+
+    const headers = {};
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    if (userRole) {
+        headers['X-User-Role'] = userRole;
+    }
+
+    try {
+        const response = await fetch(`${API_ENDPOINT}/upload.php`, {
+            method: 'POST',
+            headers: headers, // Pass headers here
+            body: formData,
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.message || `Error ${response.status}: File upload failed`);
+        }
+
+        if (result.success) {
+            return { success: true, data: result.data, message: result.message };
+        } else {
+            throw new Error(result.message || 'API returned success: false but no error message.');
+        }
+    } catch (error) {
+        console.error('Error in uploadFile:', error.message);
+        return { success: false, error: error.message };
+    }
+};
+
 
 /**
  * @typedef {Object} User
  * @property {number} user_id - The ID of the user.
  * @property {string} username - The username of the user.
+ * @property {string} role - The role of the user (e.g., 'student', 'teacher', 'admin').
  */
 
 /**
  * @typedef {Object} LoginStatus
  * @property {User} user - The logged-in user object.
  * @property {boolean} isLoggedIn - Indicates if the user is logged in. 
+ * @property {string|null} role - The role of the logged-in user, or null if not logged in.
  * @property {boolean} isLoading - Indicates if the login status is being loaded.
  * @property {Error} isError - Error object if there was an error fetching the login status.
  */
@@ -95,13 +156,19 @@ export function useLoginStatus() {
   return {
     user: data ? data.data : null,
     isLoggedIn: data ? data.success : false,
+    role: data && data.success && data.data ? data.data.role : null, // Expose role directly
     isLoading: !error && !data,
     isError: error
   };
 }
 
 export async function login(username, password) {
-  return performMutation(`${API_ENDPOINT}/auth.php`, 'POST', { username, password });
+  const result = await performMutation(`${API_ENDPOINT}/auth.php`, 'POST', { username, password });
+  // Ensure the role is returned as part of the login result
+  if (result.success && result.data && result.data.role) {
+    return { ...result, role: result.data.role };
+  }
+  return result;
 }
 
 export async function logout() {
@@ -182,39 +249,83 @@ export async function deleteBooking(bookingId) {
   return performMutation(`${API_ENDPOINT}/booking.php?booking_id=${bookingId}`, 'DELETE');
 }
 
+// Helper function to build a nested comment tree
+const buildCommentTree = (comments, parentId = null) => {
+  const nestedComments = [];
+  comments.forEach(comment => {
+    if (comment.parent_comment_id === parentId) {
+      const replies = buildCommentTree(comments, comment.comment_id);
+      if (replies.length > 0) {
+        comment.replies = replies;
+      }
+      nestedComments.push(comment);
+    }
+  });
+  return nestedComments;
+};
+
 // Comment API
 export function useComment(commentId, articleId, parentCommentId) {
   let url = `${API_ENDPOINT}/comment.php`;
+  let swrKey = null;
+
   if (commentId) {
-    url += `?comment_id=${commentId}`;
+    swrKey = `${url}?comment_id=${commentId}`;
   } else if (articleId) {
-    url += `?article_id=${articleId}`;
+    // When articleId is provided, fetch all comments for that article
+    // and then build the tree client-side.
+    swrKey = `${url}?article_id=${articleId}`;
   } else if (parentCommentId) {
-    url += `?parent_comment_id=${parentCommentId}`;
+    // This case is less likely to be used directly by CommentList now,
+    // but kept for potential specific needs.
+    swrKey = `${url}?parent_comment_id=${parentCommentId}`;
   } else {
-     url = `${API_ENDPOINT}/comment.php`;
+    // If no specific ID, fetch all comments (might be too broad for typical use)
+    swrKey = url;
   }
 
-  const { data, error } = useSWR(url, fetcher);
+  const { data, error, mutate } = useSWR(swrKey, fetcher);
+
+  let processedComments = [];
+  if (data && data.success && Array.isArray(data.data)) {
+    if (articleId) {
+      // If fetching by articleId, build the nested tree
+      processedComments = buildCommentTree(data.data);
+    } else {
+      // Otherwise, return flat list or single comment
+      processedComments = data.data;
+    }
+  } else if (data && data.success && data.data && !Array.isArray(data.data)) {
+    // If a single comment is returned (e.g., by commentId)
+    processedComments = [data.data];
+  }
 
   return {
-    comment: data ? data.data : null,
-    comments: data ? (Array.isArray(data.data) ? data.data : []) : [],
+    comment: processedComments.length === 1 ? processedComments[0] : null,
+    comments: processedComments,
     isLoading: !error && !data,
-    isError: error
+    isError: error,
+    mutate // Expose mutate for manual revalidation if needed
   };
 }
 
 export async function createComment(commentData) {
-  return performMutation(`${API_ENDPOINT}/comment.php`, 'POST', commentData);
+  // When creating a comment, we need to revalidate the relevant article's comments.
+  // The backend should handle associating the comment with the article and parent.
+  const revalidateKey = commentData.article_id ? `${API_ENDPOINT}/comment.php?article_id=${commentData.article_id}` : null;
+  return performMutation(`${API_ENDPOINT}/comment.php`, 'POST', commentData, revalidateKey);
 }
 
 export async function updateComment(commentId, commentData) {
-  return performMutation(`${API_ENDPOINT}/comment.php?comment_id=${commentId}`, 'PUT', commentData);
+  // Assuming commentData might contain article_id for revalidation
+  const revalidateKey = commentData.article_id ? `${API_ENDPOINT}/comment.php?article_id=${commentData.article_id}` : null;
+  return performMutation(`${API_ENDPOINT}/comment.php?comment_id=${commentId}`, 'PUT', commentData, revalidateKey);
 }
 
-export async function deleteComment(commentId) {
-  return performMutation(`${API_ENDPOINT}/comment.php?comment_id=${commentId}`, 'DELETE');
+export async function deleteComment(commentId, articleId) {
+  // Pass articleId to revalidate the correct comment list
+  const revalidateKey = articleId ? `${API_ENDPOINT}/comment.php?article_id=${articleId}` : null;
+  return performMutation(`${API_ENDPOINT}/comment.php?comment_id=${commentId}`, 'DELETE', null, revalidateKey);
 }
 
 // Course API
@@ -310,17 +421,16 @@ export async function deleteEnrollment(courseId, userId) {
 }
 
 // File API
-export function useFile(fileId, uploaderId) {
+export function useFile(fileId, uploaderId, fetchAll = false) {
   let swrKey = null;
   if (fileId) {
     swrKey = `${API_ENDPOINT}/file.php?file_id=${fileId}`;
   } else if (uploaderId) {
-    // Only fetch if uploaderId is explicitly provided
     swrKey = `${API_ENDPOINT}/file.php?uploader_id=${uploaderId}`;
+  } else if (fetchAll) {
+    swrKey = `${API_ENDPOINT}/file.php`; // Fetch all files
   } else {
-    // If neither fileId nor uploaderId is provided, do not fetch.
-    // To fetch all files, a separate function or explicit parameter could be used.
-    swrKey = null;
+    swrKey = null; // Do not fetch if no specific ID and not explicitly fetching all
   }
 
   const { data, error } = useSWR(swrKey, fetcher);
@@ -603,6 +713,28 @@ export async function updateCalendarEvent(eventId, eventData) {
 }
 */
 
+/**
+ * Fetches a teacher's occupied slots.
+ * @param {number} teacherId - The ID of the teacher.
+ * @returns {{occupiedSlots: {start_datetime: string, end_datetime: string}[], isLoading: boolean, isError: Error}}
+ */
+export function useTeacherOccupiedSlots(teacherId) {
+  const url = teacherId ? `${API_ENDPOINT}/teacher_calendar.php?teacher_id=${teacherId}` : null;
+  const { data, error, isLoading } = useSWR(url, fetcher);
+
+  console.log(`useTeacherOccupiedSlots for teacherId ${teacherId}:`);
+  console.log('  URL:', url);
+  console.log('  Data:', data);
+  console.log('  Error:', error);
+  console.log('  isLoading:', isLoading);
+
+  return {
+    occupiedSlots: data && data.success ? (Array.isArray(data.data) ? data.data : []) : [],
+    isLoading: isLoading, // Use isLoading directly from SWR
+    isError: error
+  };
+}
+
 // Student Courses API
 /**
  * Fetches enrolled courses for a given student.
@@ -647,6 +779,7 @@ export function useStudentCourses(userId) {
 export const getCourseContent = async (courseId) => {
   console.log(`API CALL (Real): getCourseContent for courseId: ${courseId}`);
   const token = localStorage.getItem('token');
+  const userRole = localStorage.getItem('userRole'); // Get userRole inside the function
 
   const headers = {
     'Content-Type': 'application/json',
@@ -657,6 +790,9 @@ export const getCourseContent = async (courseId) => {
   // due to permission checks (public vs. private courses, user enrollment/ownership).
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+  }
+  if (userRole) {
+    headers['X-User-Role'] = userRole;
   }
 
   try {
@@ -697,6 +833,7 @@ export const getCourseContent = async (courseId) => {
 export const addCourseContent = async (courseId, articleId, fileId) => {
   console.log(`API CALL (Real): addCourseContent for courseId: ${courseId}`, { articleId, fileId });
   const token = localStorage.getItem('token');
+  const userRole = localStorage.getItem('userRole'); // Get userRole inside the function
 
   const headers = {
     'Content-Type': 'application/json',
@@ -704,6 +841,9 @@ export const addCourseContent = async (courseId, articleId, fileId) => {
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+  }
+  if (userRole) {
+    headers['X-User-Role'] = userRole;
   }
 
   const body = {
@@ -749,6 +889,7 @@ export const addCourseContent = async (courseId, articleId, fileId) => {
 export const deleteCourseContent = async (courseId, articleId, fileId) => {
   console.log(`API CALL (Real): deleteCourseContent for courseId: ${courseId}, articleId: ${articleId}, fileId: ${fileId}`);
   const token = localStorage.getItem('token');
+  const userRole = localStorage.getItem('userRole'); // Get userRole inside the function
 
   const headers = {
     'Content-Type': 'application/json',
@@ -756,6 +897,9 @@ export const deleteCourseContent = async (courseId, articleId, fileId) => {
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+  }
+  if (userRole) {
+    headers['X-User-Role'] = userRole;
   }
 
   let queryString = `course_id=${courseId}`;

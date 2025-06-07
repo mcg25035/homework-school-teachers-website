@@ -44,7 +44,8 @@ const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user
 
   const { files, isLoading: loadingFiles, isError: errorFiles } = useFile(
     null,
-    fetchFilesCondition ? user.user_id : null
+    null, // No specific uploader_id
+    true // Fetch all files
   );
 
   console.log('AddCourseContentModal - useFile SWR:', { files, loadingFiles, errorFiles });
@@ -146,8 +147,8 @@ const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user
               >
                 <option value="">-- Select an item --</option>
                 {(contentType === 'article' ? articles : files).map((item) => {
-                    const id = item.article_id || item.file_id || item.id;
-                    const name = contentType === 'article' ? item.title : item.name;
+                    const id = item.article_id || item.file_id; // Use article_id or file_id
+                    const name = contentType === 'article' ? item.title : item.file_name; // Use title for article, file_name for file
                     return (
                         <option key={id} value={id}>
                             {name} (ID: {id})

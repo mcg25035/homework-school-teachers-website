@@ -8,11 +8,13 @@ function Login({ login }) {
 
   const handleLogin = async () => {
     const result = await login(username, password);
-    if (result.success) {
-      // SWR in App.js will handle state update and re-render
-    } else {
+    if (!result.success) {
       setError(result.error);
+      return;
     }
+    // SWR in App.js will handle state update and re-render
+    // Store role in localStorage
+    localStorage.setItem('userRole', result.role);
   };
 
   return (

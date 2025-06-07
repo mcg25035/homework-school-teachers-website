@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Card, Container, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import AddCourseContentModal from './AddCourseContentModal';
-import { getCourseContent, deleteCourseContent, addCourseContent } from '../api'; // Import API functions
+import { getCourseContent, deleteCourseContent, addCourseContent, downloadFile } from '../api'; // Import API functions
+import ArticleView from './ArticleView'; // Import ArticleView
+import FileListAndDownload from './FileListAndDownload'; // Import FileListAndDownload
 
-const CourseContent = ({ course_id, user, setActiveComponent }) => {
+const CourseContent = ({ course_id, user }) => { // Changed courseId to course_id
   const [content, setContent] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Fixed syntax error: added useState
   const [error, setError] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [courseName, setCourseName] = useState('Course Name');
+  const [selectedArticleId, setSelectedArticleId] = useState(null); // State for selected article
+  const [selectedFileId, setSelectedFileId] = useState(null); // State for selected file
 
   useEffect(() => {
-    if (!course_id) {
+    if (!course_id) { // Use course_id
       setError('Course ID is missing.');
       setLoading(false);
       return;
@@ -21,10 +25,10 @@ const CourseContent = ({ course_id, user, setActiveComponent }) => {
       setLoading(true);
       setError(null);
       try {
-        console.log(`Fetching content for course_id: ${course_id}`);
+        console.log(`Fetching content for course_id: ${course_id}`); // Use course_id
         // Log the user object to ensure it's passed correctly
         console.log('CourseContent - User object:', user);
-        const fetchedContent = await getCourseContent(course_id);
+        const fetchedContent = await getCourseContent(course_id); // Use course_id
         console.log('CourseContent - Raw fetchedContent:', JSON.stringify(fetchedContent, null, 2)); // Log raw fetched content
 
         // Assuming API returns objects with 'name' and 'type' or we derive them
@@ -69,6 +73,10 @@ const CourseContent = ({ course_id, user, setActiveComponent }) => {
     // refreshContent();
   }
 
+  const handleBackToContent = () => {
+    setSelectedArticleId(null);
+    setSelectedFileId(null);
+  };
 
   const refreshContent = async () => {
     setLoading(true);
@@ -87,6 +95,29 @@ const CourseContent = ({ course_id, user, setActiveComponent }) => {
         setError(err.message || 'Failed to refresh content.');
     } finally {
         setLoading(false);
+    }
+  };
+
+  const handleDownloadFile = async (fileId, fileName) => {
+    try {
+      const response = await downloadFile(fileId);
+      if (response.success) {
+        const blob = await response.data.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName || `file_${fileId}`; // Use provided file name or a default
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        alert('File downloaded successfully!');
+      } else {
+        alert(`Failed to download file: ${response.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      alert(`Error downloading file: ${error.message}`);
     }
   };
 
@@ -132,6 +163,29 @@ const CourseContent = ({ course_id, user, setActiveComponent }) => {
         setLoading(false); // Ensure loading is stopped on error
     }
   };
+
+  // Render ArticleView or FileListAndDownload if selected
+  if (selectedArticleId) {
+    return (
+      <Container fluid className="mt-4">
+        <Button variant="secondary" onClick={handleBackToContent} className="mb-3">
+          &larr; Back to Course Content
+        </Button>
+        <ArticleView articleId={selectedArticleId} />
+      </Container>
+    );
+  }
+
+  if (selectedFileId) {
+    return (
+      <Container fluid className="mt-4">
+        <Button variant="secondary" onClick={handleBackToContent} className="mb-3">
+          &larr; Back to Course Content
+        </Button>
+        <FileListAndDownload fileId={selectedFileId} />
+      </Container>
+    );
+  }
 
   // Initial loading state
   if (loading && content.length === 0 && !error) {
@@ -192,9 +246,15 @@ const CourseContent = ({ course_id, user, setActiveComponent }) => {
                   <Card.Text>
                     Added: {new Date(item.create_time).toLocaleString()}
                   </Card.Text>
-                  <Button variant="link" onClick={() => setActiveComponent(item.article_id ? 'ArticleView' : 'FileView', { articleId: item.article_id || item.file_id, courseName: courseName })}>
-                    View Content
-                  </Button>
+                  {item.type === 'article' ? (
+                    <Button variant="link" onClick={() => setSelectedArticleId(item.article_id)}> {/* Changed setActiveComponent */}
+                      View Article
+                    </Button>
+                  ) : (
+                    <Button variant="link" onClick={() => setSelectedFileId(item.file_id)}> {/* Changed setActiveComponent */}
+                      View File
+                    </Button>
+                  )}
                 </Card.Body>
                 <Card.Footer>
                   <Button variant="outline-danger" size="sm" onClick={() => handleDeleteContent(item)} disabled={loading}>

@@ -23,6 +23,8 @@ import DevTeacherPagePortal from './components/DevTeacherPagePortal'; // Import 
 import ManageCourseEnrollment from './components/ManageCourseEnrollment'; // Import ManageCourseEnrollment
 import MyCourses from './components/MyCourses'; // Import MyCourses
 import CourseContent from './components/CourseContent'; // Import CourseContent
+import FileUpload from './components/FileUpload'; // Import FileUpload
+import FileListAndDownload from './components/FileListAndDownload'; // Import FileListAndDownload
 
 const components = {
   Component1: Component1,
@@ -46,6 +48,8 @@ const components = {
   ManageCourseEnrollment: ManageCourseEnrollment, // Add ManageCourseEnrollment to the map
   MyCourses: MyCourses, // Add MyCourses to the map
   CourseContent: CourseContent, // Add CourseContent to the map
+  FileUpload: FileUpload, // Add FileUpload to the map
+  FileListAndDownload: FileListAndDownload, // Add FileListAndDownload to the map
 };
 
 // Modified renderComponent to accept and pass props

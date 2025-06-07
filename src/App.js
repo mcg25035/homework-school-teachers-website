@@ -4,65 +4,134 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import renderComponent from './routes';
 import Login from './auth/Login';
+import { Button } from 'react-bootstrap';
 import { useLoginStatus, login, logout } from './api';
 
 function App() {
   // Modified activeComponentState to store name and props
   const [activeComponentState, setActiveComponentState] = useState({ name: 'Component1', props: {} });
-  const { isLoggedIn, user, isLoading: isLoginStatusLoading } = useLoginStatus();
+  const { isLoggedIn, user, role, isLoading: isLoginStatusLoading } = useLoginStatus(); // Get role directly
 
-  console.log('isLoggedIn:', isLoggedIn, 'User object:', user); // Keep this log
+  console.log('isLoggedIn:', isLoggedIn, 'User object:', user, 'User role:', role); // Keep this log
 
   // Define the function to update activeComponentState
   const handleSetActiveComponent = (componentName, componentProps = {}) => {
+    // Redirect Profile and Settings for teachers
+    if (role === 'teacher') {
+      if (componentName === 'Profile') {
+        setActiveComponentState({ name: 'TeacherPublicPageView', props: { teacherId: user.user_id } });
+        return;
+      }
+      if (componentName === 'Settings') {
+        setActiveComponentState({ name: 'TeacherPersonalPageEditor', props: {} });
+        return;
+      }
+    }
     setActiveComponentState({ name: componentName, props: componentProps });
   };
 
   const functionList = [
-    { component: 'Component1', display: 'Function 1' },
-    { component: 'Component2', display: 'Function 2' },
-    { component: 'Component3', display: 'Function 3' },
-    { component: 'CourseList', display: '課程' },
-    { component: 'MyBookings', display: '預約時間' },
-    { component: 'TeacherBookings', display: '查看預約' },
-    { component: 'ArticleList', display: '文章' }, // Added ArticleList
-    { component: 'TeacherCalendar', display: '行事曆' },
-    { component: 'TeacherPersonalPageEditor', display: '編輯個人頁面' },
-    // Add the new portal entry:
-    { component: 'DevTeacherPagePortal', display: 'Dev: View Teacher Page' },
+    { component: 'CourseList', display: '課程', roles: ['teacher'] },
+    { component: 'MyBookings', display: '我的預約', roles: ['user'] },
+    { component: 'TeacherBookings', display: '查看預約', roles: ['teacher'] },
+    { component: 'ArticleList', display: '文章', roles: ['user', 'teacher'] },
+    { component: 'TeacherCalendar', display: '行事曆', roles: ['teacher'] },
+    { component: 'TeacherPersonalPageEditor', display: '編輯個人頁面', roles: ['teacher', 'user'] },
+    { component: 'TeacherPublicPageView', display: '個人頁面展示', roles: ['teacher'], hidden: true }, // Add TeacherPublicPageView to functionList
+    { component: 'DevTeacherPagePortal', display: '個人頁面模板', roles: ['teacher'] }, // Changed display and roles for DevTeacherPagePortal
+    { component: 'FileUpload', display: '檔案上傳', roles: ['teacher'] },
+    { component: 'FileListAndDownload', display: '檔案列表與下載', roles: ['teacher'] },
+    { component: 'MyCourses', display: '我的課程', roles: ['user'] },
+    { component: 'CourseContent', display: '課程內容', roles: ['user', 'teacher'], hidden: true },
+    { component: 'ManageCourseEnrollment', display: '管理學生', roles: ['teacher'], hidden: true },
+    { component: 'CreateCourse', display: '創建課程', roles: ['teacher'], hidden: true},
+    { component: 'EditCourse', display: '編輯課程', roles: ['teacher'], hidden: true },
+    { component: 'CreateArticle', display: '創建文章', roles: ['teacher'], hidden: true },
+    { component: 'EditArticle', display: '編輯文章', roles: ['teacher'], hidden: true },
   ];
 
-  if (isLoginStatusLoading) {
-    return <div>Loading login status...</div>;
-  }
+  // Use useEffect to handle initial component display or redirect on role change
+  React.useEffect(() => {
+    if (isLoginStatusLoading) {
+      return; // Do nothing while login status is loading
+    }
+
+    if (isLoggedIn && role) {
+      const currentComponentInfo = functionList.find(
+        (item) => item.component === activeComponentState.name
+      );
+
+      // If current component requires roles and user's role is not included,
+      // or if current component is not found, redirect to Component1.
+      if (!currentComponentInfo || (currentComponentInfo.roles && !currentComponentInfo.roles.includes(role))) {
+        handleSetActiveComponent('Component1');
+      }
+    } else if (!isLoggedIn) {
+      // If not logged in, ensure we are on the login page or a public page.
+      // For simplicity, if not logged in, we let the main render logic handle showing Login.
+      // If activeComponentState.name is not 'Login' and it's not a public page,
+      // it will be handled by the getComponentToRender logic.
+    }
+  }, [isLoggedIn, role, activeComponentState.name, isLoginStatusLoading]); // Depend on isLoggedIn, role, and activeComponentState.name
+
+  const getComponentToRender = () => {
+    if (isLoginStatusLoading) {
+      return <div>Loading login status...</div>;
+    }
+
+    if (!isLoggedIn) {
+      return <Login login={login} />;
+    }
+
+    const activeComponentInfo = functionList.find(
+      (item) => item.component === activeComponentState.name
+    );
+
+    // If component not found in functionList, or no roles defined, assume accessible for all logged-in users
+    if (!activeComponentInfo) {
+      // Fallback to a default component if the active component is not found in the list
+      return renderComponent('Component1', { // Render Component1 as a safe fallback
+        ...activeComponentState.props,
+        user: user,
+        setActiveComponent: handleSetActiveComponent,
+        isLoggedIn: isLoggedIn, // Pass isLoggedIn to Component1
+      });
+    }
+
+    // If roles are not explicitly defined for a component, it's accessible to all logged-in users.
+    // Otherwise, check if the user's role is included in the allowed roles for the component.
+    if (!activeComponentInfo.roles || (role && activeComponentInfo.roles.includes(role))) {
+      return renderComponent(activeComponentState.name, {
+        ...activeComponentState.props,
+        user: user,
+        setActiveComponent: handleSetActiveComponent,
+      });
+    } else {
+      // User does not have the required role
+      return (
+        <div className="text-center mt-5">
+          <h3>Access Denied</h3>
+          <p>您沒有權限訪問此頁面。</p>
+          <Button variant="primary" onClick={() => handleSetActiveComponent('Component1')}>
+            返回首頁
+          </Button>
+        </div>
+      );
+    }
+  };
 
   return (
     <div>
       <Header
         functionList={functionList}
-        // Header expects setActiveComponent to take a string.
-        // We adapt by wrapping handleSetActiveComponent or relying on its flexibility if only name is passed.
-        // For items in functionList, Header calls setActiveComponent(item.component).
-        // handleSetActiveComponent will receive componentName = item.component, props = {}. This is correct.
         setActiveComponent={handleSetActiveComponent}
         isLoggedIn={isLoggedIn}
         user={user}
         logout={logout}
+        userRole={role} // Pass role to Header
       />
       <main className="container py-5" style={{ marginTop: '80px', marginBottom: '60px' }}>
-        {isLoggedIn ? (
-          // Pass name, and combine stored props with user and setActiveComponent
-          renderComponent(
-            activeComponentState.name, 
-            { 
-              ...activeComponentState.props, 
-              user: user, // Pass user object
-              setActiveComponent: handleSetActiveComponent // Pass the setter function
-            }
-          )
-        ) : (
-          <Login login={login} />
-        )}
+        {getComponentToRender()}
       </main>
       <Footer />
     </div>

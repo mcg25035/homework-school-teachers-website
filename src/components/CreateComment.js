@@ -1,19 +1,24 @@
 import React, { useState } from 'react';
-import { createComment } from '../api'; // SWR's mutate is not directly needed here if api.js handles it
+import { createComment, useLoginStatus } from '../api';
 import { Form, Button, Alert, Spinner } from 'react-bootstrap';
 
-function CreateComment({ articleId, user }) {
+function CreateComment({ articleId, parentCommentId = null, onCommentCreated, placeholder = "Write a comment..." }) {
+  const { user, isLoggedIn, isLoading: isLoadingUser } = useLoginStatus();
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
-  if (!user) {
+  if (isLoadingUser) {
+    return <Spinner animation="border" size="sm" role="status"><span className="visually-hidden">Loading user status...</span></Spinner>;
+  }
+
+  if (!isLoggedIn || !user) {
     return <Alert variant="info" className="mt-3">Please log in to post a comment.</Alert>;
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null); // Clear previous errors
+    setError(null);
 
     if (!content.trim()) {
       setError('Comment cannot be empty.');
@@ -23,23 +28,22 @@ function CreateComment({ articleId, user }) {
     setIsSubmitting(true);
     const commentData = { 
       article_id: articleId, 
-      user_id: user.user_id, // Assumes user object has user_id
-      content 
+      user_id: user.user_id,
+      content,
+      parent_comment_id: parentCommentId // Include parentCommentId if it exists
     };
 
     try {
-      // Assuming createComment returns an object like { success: true } or { error: "message" }
       const result = await createComment(commentData); 
       if (result && result.success) {
-        setContent(''); // Clear textarea
-        // CommentList should auto-update via SWR's cache revalidation
-        // which createComment in api.js should trigger.
+        setContent('');
+        if (onCommentCreated) {
+          onCommentCreated(); // Notify parent component that comment was created
+        }
       } else {
-        // If result.error is provided, use it, otherwise a generic message
         setError(result && result.error ? result.error : 'Failed to post comment. Please try again.');
       }
     } catch (err) {
-      // Handle network errors or other exceptions thrown by createComment
       const errorMessage = err.response && err.response.data && err.response.data.message ? err.response.data.message : err.message;
       setError('An unexpected error occurred: ' + errorMessage);
     } finally {
@@ -48,9 +52,9 @@ function CreateComment({ articleId, user }) {
   };
 
   return (
-    <Form onSubmit={handleSubmit} className="mt-4"> {/* Added a bit more margin top */}
+    <Form onSubmit={handleSubmit} className="mt-4">
       {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
-      <Form.Group className="mb-3" controlId="commentContent"> {/* Increased margin bottom */}
+      <Form.Group className="mb-3" controlId="commentContent">
         <Form.Label>Your Comment</Form.Label>
         <Form.Control 
           as="textarea" 
@@ -58,10 +62,11 @@ function CreateComment({ articleId, user }) {
           value={content} 
           onChange={(e) => setContent(e.target.value)} 
           required 
-          disabled={isSubmitting} // Disable textarea while submitting
+          disabled={isSubmitting}
+          placeholder={placeholder} // Use the placeholder prop
         />
       </Form.Group>
-      <Button variant="primary" type="submit" disabled={isSubmitting}> {/* Changed to primary button */}
+      <Button variant="primary" type="submit" disabled={isSubmitting}>
         {isSubmitting ? (
           <>
             <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-1" />

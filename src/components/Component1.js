@@ -1,24 +1,35 @@
 import React from 'react';
-import { useArticle } from '../api';
+import { Container, Button, Row, Col } from 'react-bootstrap'; // Removed Jumbotron, added Row, Col
 
-function Component1() {
-  const { article, isLoading, isError } = useArticle(1);
-
-  if (isLoading) return <div>Loading...</div>;
-  if (isError) return <div>Error...</div>;
-
+function Component1({ setActiveComponent, isLoggedIn }) {
   return (
-    <div>
-      <h1>Component 1</h1>
-      {article ? (
-        <div>
-          <h2>{article.title}</h2>
-          <p>{article.content}</p>
-        </div>
-      ) : (
-        <div>No article found.</div>
-      )}
-    </div>
+    <Container className="text-center mt-5 py-5 bg-light rounded"> {/* Added bg-light and rounded for styling */}
+      <Row className="justify-content-center">
+        <Col md={8}>
+          <h1>歡迎來到我們的學習平台！</h1>
+          <p className="lead">
+            在這裡，您可以輕鬆管理課程、查看學生、發布文章，並追蹤您的預約。
+          </p>
+          <hr className="my-4" />
+          <p>
+            無論您是教師還是學生，我們都致力於提供最佳的學習和管理體驗。
+          </p>
+          {isLoggedIn ? (
+            <p>
+              <Button variant="primary" onClick={() => setActiveComponent('CourseList')}>
+                查看我的課程
+              </Button>
+            </p>
+          ) : (
+            <p>
+              <Button variant="primary" onClick={() => setActiveComponent('Login')}>
+                立即登入
+              </Button>
+            </p>
+          )}
+        </Col>
+      </Row>
+    </Container>
   );
 }
 

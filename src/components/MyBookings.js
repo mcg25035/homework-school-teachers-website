@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Alert, Table, Spinner } from 'react-bootstrap'; // Import Table, Spinner
-import { createBooking, useBooking, useLoginStatus, updateBooking } from '../api'; // Import updateBooking
+import { createBooking, useBooking, useLoginStatus, updateBooking, useTeacherOccupiedSlots } from '../api'; // Import updateBooking, useTeacherOccupiedSlots
 import { formatBookingDateTime } from '../utils/dateUtils'; // Import formatBookingDateTime
 
 
@@ -19,6 +19,9 @@ const MyBookings = () => {
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingError, setBookingError] = useState(null);
   const [isBookingLoading, setIsBookingLoading] = useState(false);
+
+  // Fetch teacher's occupied slots
+  const { occupiedSlots, isLoading: isOccupiedSlotsLoading, isError: occupiedSlotsError } = useTeacherOccupiedSlots(parseInt(teacherId, 10));
 
   // States for editing/viewing existing bookings
   const [showEditModal, setShowEditModal] = useState(false);
@@ -44,6 +47,55 @@ const MyBookings = () => {
     setBookingSuccess(false);
     setBookingError(null);
     setShowModal(true);
+  };
+
+  // Effect for real-time conflict checking
+  useEffect(() => {
+    // Clear previous error when inputs change
+    setBookingError(null);
+
+    // Only perform check if all necessary inputs are available and modal is open
+    if (!showModal || !startTime || !endTime || !teacherId || isOccupiedSlotsLoading || occupiedSlotsError) {
+      return;
+    }
+
+    const parsedTeacherId = parseInt(teacherId, 10);
+    if (isNaN(parsedTeacherId)) {
+      setBookingError('Invalid Teacher ID. Please enter a valid number.');
+      return;
+    }
+
+    if (checkTimeConflict(startTime, endTime, occupiedSlots)) {
+      setBookingError('The selected time slot is already occupied by the teacher. Please choose another time.');
+      return;
+    }
+
+    // If no conflicts and all checks pass, clear any previous booking errors
+    setBookingError(null);
+
+  }, [startTime, endTime, teacherId, occupiedSlots, isOccupiedSlotsLoading, occupiedSlotsError, showModal]);
+
+  // Helper function to check for time conflicts
+  const checkTimeConflict = (newStartTime, newEndTime, existingSlots) => {
+    if (!newStartTime || !newEndTime || !existingSlots) return false;
+
+    const newStart = new Date(newStartTime).getTime();
+    const newEnd = new Date(newEndTime).getTime();
+
+    // Invalid date parsing
+    if (isNaN(newStart) || isNaN(newEnd)) return false;
+
+    for (const slot of existingSlots) {
+      const existingStart = new Date(slot.start_datetime).getTime();
+      const existingEnd = new Date(slot.end_datetime).getTime();
+
+      // Check for overlap
+      // (StartA < EndB) and (EndA > StartB)
+      if (newStart < existingEnd && newEnd > existingStart) {
+        return true; // Conflict found
+      }
+    }
+    return false; // No conflict
   };
 
   const handleShowEditModal = (booking) => {
@@ -112,21 +164,65 @@ const MyBookings = () => {
 
     if (!requesterUserId) { // Ensure requesterUserId is available
       setBookingError('User not logged in.');
+      console.log('handleBooking: User not logged in, returning.');
       return;
     }
 
     if (!startTime || !endTime || !title || !teacherId) {
       setBookingError('Please fill in all required fields (Start Time, End Time, Title, Teacher ID).');
+      console.log('handleBooking: Missing required fields, returning.');
+      return;
+    }
+
+    // Convert teacherId to integer for API call and hook
+    const parsedTeacherId = parseInt(teacherId, 10);
+    if (isNaN(parsedTeacherId)) {
+      setBookingError('Invalid Teacher ID. Please enter a valid number.');
+      console.log('handleBooking: Invalid Teacher ID, returning.');
       return;
     }
 
     setIsBookingLoading(true);
+    console.log('handleBooking: setIsBookingLoading(true)');
     setBookingError(null);
     setBookingSuccess(false);
 
+    // Wait for occupied slots to load if they are still loading
+    while (isOccupiedSlotsLoading) {
+      setBookingError('Checking teacher availability, please wait...');
+      console.log('handleBooking: Waiting for occupied slots to load...');
+      await new Promise(resolve => setTimeout(resolve, 100)); // Wait a short period
+    }
+
+    // Check for occupied slots after loading
+    if (occupiedSlotsError) {
+      setBookingError(`Error checking teacher availability: ${occupiedSlotsError.message}`);
+      setIsBookingLoading(false);
+      console.log('handleBooking: Occupied slots error, returning.');
+      return;
+    }
+
+    // This duplicate check is redundant, remove it.
+    // if (occupiedSlotsError) {
+    //   setBookingError(`Error checking teacher availability: ${occupiedSlotsError.message}`);
+    //   setIsBookingLoading(false);
+    //   return;
+    // }
+
+    console.log('Checking time conflict:');
+    console.log('  New Start Time:', startTime);
+    console.log('  New End Time:', endTime);
+    console.log('  Occupied Slots:', occupiedSlots);
+
+    if (checkTimeConflict(startTime, endTime, occupiedSlots)) {
+      setBookingError('The selected time slot is already occupied by the teacher. Please choose another time.');
+      setIsBookingLoading(false);
+      return;
+    }
+
     try {
       const bookingData = {
-        teacher_id: parseInt(teacherId, 10),
+        teacher_id: parsedTeacherId,
         requester_user_id: requesterUserId, // Use actual logged-in user's ID
         start_time: startTime,
         end_time: endTime,
@@ -153,6 +249,7 @@ const MyBookings = () => {
       console.error('Error booking appointment:', err);
     } finally {
       setIsBookingLoading(false);
+      console.log('setIsBookingLoading(false) called in finally block.');
     }
   };
 
@@ -273,6 +370,8 @@ const MyBookings = () => {
         </Modal.Header>
         <Modal.Body>
           {bookingError && <Alert variant="danger">{bookingError}</Alert>}
+          {isOccupiedSlotsLoading && <Spinner animation="border" size="sm" className="me-2" />}
+          {occupiedSlotsError && <Alert variant="danger">Error loading teacher availability: {occupiedSlotsError.message || 'Unknown error'}</Alert>}
           <Form onSubmit={handleBooking}>
              <Form.Group className="mb-3" controlId="teacherId">
               <Form.Label>Teacher ID</Form.Label>
@@ -331,10 +430,15 @@ const MyBookings = () => {
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="primary" onClick={handleBooking} disabled={isBookingLoading}>
-            {isBookingLoading ? '建立中...' : '確認建立'}
+          <Button
+            variant="primary"
+            onClick={handleBooking}
+            disabled={isBookingLoading || isOccupiedSlotsLoading || isNaN(parseInt(teacherId, 10))} // Disable if booking is loading, occupied slots are loading, or teacherId is invalid
+          >
+            {console.log('Button disabled state:', isBookingLoading, isOccupiedSlotsLoading, isNaN(parseInt(teacherId, 10)))}
+            {isBookingLoading || isOccupiedSlotsLoading ? '建立中...' : '確認建立'}
           </Button>
-          <Button variant="secondary" onClick={handleCloseCreateModal} disabled={isBookingLoading}>
+          <Button variant="secondary" onClick={handleCloseCreateModal} disabled={isBookingLoading || isOccupiedSlotsLoading || isNaN(parseInt(teacherId, 10))}>
             關閉
           </Button>
         </Modal.Footer>

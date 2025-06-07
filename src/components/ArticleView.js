@@ -61,7 +61,6 @@ function ArticleView({ articleId, user, setActiveComponent }) {
         <hr />
         <h4>Comments</h4>
         <CommentList articleId={article.article_id} />
-        <CreateComment articleId={article.article_id} user={user} setActiveComponent={setActiveComponent} />
       </Card.Body>
     </Card>
   );

@@ -32,10 +32,10 @@ const substituteVariables = (content, variables) => {
   return processedContent;
 };
 
-function TeacherPublicPageView({ teacherUserIdFromProp }) { 
-  // For now, assume teacherUserIdFromProp is provided and valid
+function TeacherPublicPageView({ teacherId }) { // Changed prop name to teacherId
+  // For now, assume teacherId is provided and valid
   // In a real app, you'd need robust logic to determine the ID
-  const teacher_user_id = teacherUserIdFromProp; // Confirmed: teacher_user_id comes from prop
+  const teacher_user_id = teacherId; // Assign teacherId to teacher_user_id
 
   const {
     data: teacherPageData, // This is { user_id, content, variables } or default from useTeacherPage
