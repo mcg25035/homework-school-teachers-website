@@ -58,23 +58,15 @@ function TeacherTemplateManager() {
     // mutate: revalidateSharedTemplates // SWR should auto-revalidate
   } = useTemplates(isLoggedIn ? { shared: true } : {});
 
-  console.log('[TeacherTemplateManager] Raw sharedTemplatesData from useTemplates:', sharedTemplatesData);
-  console.log('[TeacherTemplateManager] isLoadingSharedTemplates:', isLoadingSharedTemplates);
-  console.log('[TeacherTemplateManager] errorSharedTemplates:', errorSharedTemplates);
-
   // Filter out own templates from shared templates
   const filteredSharedTemplates = React.useMemo(() => {
-    console.log('[TeacherTemplateManager useMemo] Calculating filteredSharedTemplates. sharedTemplatesData:', sharedTemplatesData, 'user.user_id:', user?.user_id);
     if (!sharedTemplatesData || !user?.user_id) {
-      console.log('[TeacherTemplateManager useMemo] Guard hit (sharedTemplatesData or user_id missing), returning [].');
       return [];
     }
     const result = sharedTemplatesData.filter(t => {
       const condition = t.creator_id !== user.user_id;
-      console.log(`[TeacherTemplateManager useMemo filter] Template ID: ${t.template_id}, t.creator_id: ${t.creator_id} (type: ${typeof t.creator_id}), user.user_id: ${user.user_id} (type: ${typeof user.user_id}), condition (t.creator_id !== user.user_id): ${condition}`);
       return condition;
     });
-    console.log('[TeacherTemplateManager useMemo] Filter result:', result);
     return result;
   }, [sharedTemplatesData, user?.user_id]);
 
@@ -294,32 +286,29 @@ function TeacherTemplateManager() {
             <Tab eventKey="shared-templates" title="Shared Templates">
               {isLoadingSharedTemplates && <div className="text-center p-3"><Spinner animation="border" /></div>}
               {errorSharedTemplates && <Alert variant="danger">Error loading shared templates: {errorSharedTemplates.message}</Alert>}
-              {!isLoadingSharedTemplates && !errorSharedTemplates &&
-                (() => { // Use a function to allow logging before returning JSX
-                  console.log('[TeacherTemplateManager Render] filteredSharedTemplates:', filteredSharedTemplates);
-                  console.log('[TeacherTemplateManager Render] Condition (filteredSharedTemplates && filteredSharedTemplates.length > 0):', filteredSharedTemplates && filteredSharedTemplates.length > 0);
-                  return filteredSharedTemplates && filteredSharedTemplates.length > 0 ? (
-                    <ListGroup>
-                      {filteredSharedTemplates.map(template => (
-                        <ListGroup.Item key={template.template_id} className="d-flex justify-content-between align-items-center">
-                          <div>
-                            <strong>{template.name}</strong>
-                            <small className="d-block text-muted">
-                              Creator ID: {template.creator_id} |
-                              Last updated: {new Date(template.updated_at).toLocaleDateString()}
-                            </small>
-                          </div>
-                          <ButtonGroup>
-                            {/* Preview Modal can be added here */}
-                            <Button variant="outline-primary" size="sm" onClick={() => handleApplyTemplate(template.content)}>Use This Template</Button>
-                          </ButtonGroup>
-                        </ListGroup.Item>
-                      ))}
-                    </ListGroup>
-                  ) : (
-                    <Alert variant="info">No templates are currently shared by other users (after filtering).</Alert>
-                  );
-                })()}
+              {!isLoadingSharedTemplates && !errorSharedTemplates && (
+                filteredSharedTemplates && filteredSharedTemplates.length > 0 ? (
+                  <ListGroup>
+                    {filteredSharedTemplates.map(template => (
+                      <ListGroup.Item key={template.template_id} className="d-flex justify-content-between align-items-center">
+                        <div>
+                          <strong>{template.name}</strong>
+                          <small className="d-block text-muted">
+                            Creator ID: {template.creator_id} |
+                            Last updated: {new Date(template.updated_at).toLocaleDateString()}
+                          </small>
+                        </div>
+                        <ButtonGroup>
+                          {/* Preview Modal can be added here */}
+                          <Button variant="outline-primary" size="sm" onClick={() => handleApplyTemplate(template.content)}>Use This Template</Button>
+                        </ButtonGroup>
+                      </ListGroup.Item>
+                    ))}
+                  </ListGroup>
+                ) : (
+                  <Alert variant="info">No templates are currently shared by other users (after filtering).</Alert>
+                )
+              )}
             </Tab>
           </Tabs>
 
