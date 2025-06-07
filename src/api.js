@@ -594,3 +594,19 @@ export async function updateCalendarEvent(eventId, eventData) {
   return performMutation(`${API_ENDPOINT}/calendar.php?event_id=${eventId}`, 'PUT', eventData);
 }
 */
+
+// Student Courses API
+/**
+ * Fetches courses for the currently logged-in student.
+ * @returns {{courses: Object[], isLoading: boolean, isError: Error}}
+ */
+export function useStudentCourses() {
+  const url = `${API_ENDPOINT}/student/courses`; // Assuming /api prefix is handled by API_ENDPOINT
+  const { data, error } = useSWR(url, fetcher);
+
+  return {
+    courses: data && data.success ? (Array.isArray(data.data) ? data.data : []) : [],
+    isLoading: !error && !data,
+    isError: error
+  };
+}

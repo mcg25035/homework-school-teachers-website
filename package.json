@@ -4,8 +4,6 @@
   "private": true,
   "dependencies": {
     "@testing-library/dom": "^10.4.0",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
     "bootstrap": "^5.3.6",
     "moment": "^2.30.1",
@@ -41,5 +39,10 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://node.fcu.mcloudtw.com/~D1210270"
+  "proxy": "http://node.fcu.mcloudtw.com/~D1210270",
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "jest": "^27.5.1"
+  }
 }
