@@ -9,12 +9,13 @@ import {
   // getUserById // Import if needed later
 } from '../api';
 import StudentInfo from './StudentInfo'; // Import StudentInfo
+import { Container, Button, Form, ListGroup, Alert, Spinner, Card, Row, Col } from 'react-bootstrap';
 
 function ManageCourseEnrollment({ course_id, setActiveComponent }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+  // Consolidated notification state
+  const [notification, setNotification] = useState(null); // { type: 'success' | 'danger', message: '...' } | null
 
   const { user: loggedInUser, isLoading: isLoadingLoginStatus } = useLoginStatus();
   const { course, isLoading: isLoadingCourse, isError: isErrorCourse } = useCourse(course_id);
@@ -47,136 +48,179 @@ function ManageCourseEnrollment({ course_id, setActiveComponent }) {
           const enrolledStudentIds = enrollments.map(enrollment => enrollment.student_id);
           newFilteredResults = searchedUsers.filter(user => !enrolledStudentIds.includes(user.user_id));
         } else {
-          // No enrollments or empty enrollments array, so all searchedUsers are potential results
           newFilteredResults = searchedUsers;
         }
       }
-      // If searchedUsers is null/undefined, newFilteredResults remains []
 
-      // Check if the new results are different from the previous results
-      // This comparison logic assumes user objects have a stable user_id property.
       if (prevResults.length === newFilteredResults.length) {
         const prevIdsString = prevResults.map(u => u.user_id).sort().join(',');
         const newIdsString = newFilteredResults.map(u => u.user_id).sort().join(',');
         if (prevIdsString === newIdsString) {
-          return prevResults; // Return old state if IDs are the same, preventing re-render
+          return prevResults;
         }
       }
-      return newFilteredResults; // Return new state
+      return newFilteredResults;
     });
-  }, [searchedUsers, enrollments]); // Dependency array is correct
+  }, [searchedUsers, enrollments]);
 
   const handleAddStudent = async (userIdToAdd) => {
-    setSuccessMessage('');
-    setErrorMessage('');
+    setNotification(null);
     if (!course_id || !userIdToAdd) {
-      setErrorMessage('Course ID or User ID is missing.');
+      setNotification({ type: 'danger', message: 'Course ID or User ID is missing.' });
       return;
     }
     const result = await createEnrollment({ course_id, user_id: userIdToAdd });
     if (result.success) {
-      setSuccessMessage(`Student successfully enrolled.`);
-      if (revalidateEnrollments) revalidateEnrollments(); // Revalidate enrollments list
-      setSearchTerm(''); // Clear search term
-      setSearchResults([]); // Clear search results
+      setNotification({ type: 'success', message: 'Student successfully enrolled.' });
+      if (revalidateEnrollments) revalidateEnrollments();
+      setSearchTerm('');
+      setSearchResults([]);
     } else {
-      setErrorMessage(result.error || 'Failed to enroll student.');
+      setNotification({ type: 'danger', message: result.error || 'Failed to enroll student.' });
     }
   };
 
   const handleRemoveStudent = async (userIdToRemove) => {
-    setSuccessMessage('');
-    setErrorMessage('');
+    setNotification(null);
     if (!course_id || !userIdToRemove) {
-      setErrorMessage('Course ID or User ID is missing.');
+      setNotification({ type: 'danger', message: 'Course ID or User ID is missing.' });
       return;
     }
     const result = await deleteEnrollment(course_id, userIdToRemove);
     if (result.success) {
-      setSuccessMessage(`Student successfully removed.`);
-      if (revalidateEnrollments) revalidateEnrollments(); // Revalidate enrollments list
+      setNotification({ type: 'success', message: 'Student successfully removed.' });
+      if (revalidateEnrollments) revalidateEnrollments();
     } else {
-      setErrorMessage(result.error || 'Failed to remove student.');
+      setNotification({ type: 'danger', message: result.error || 'Failed to remove student.' });
     }
   };
 
-  // Clear messages after a few seconds
   useEffect(() => {
-    if (successMessage) {
-      const timer = setTimeout(() => setSuccessMessage(''), 5000);
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000);
       return () => clearTimeout(timer);
     }
-    if (errorMessage) {
-      const timer = setTimeout(() => setErrorMessage(''), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [successMessage, errorMessage]);
+  }, [notification]);
 
-  if (isLoadingLoginStatus || isLoadingCourse) return <p>Loading course details...</p>;
-  if (isErrorCourse) return <p>Error loading course: {isErrorCourse.message || 'Unknown error'}</p>;
-  if (!course) return <p>Course not found.</p>;
+  if (isLoadingLoginStatus || isLoadingCourse) {
+    return (
+      <Container className="text-center mt-5">
+        <Spinner animation="border" role="status">
+          <span className="visually-hidden">Loading course details...</span>
+        </Spinner>
+        <p>Loading course details...</p>
+      </Container>
+    );
+  }
 
-  // Assuming teacher is the logged-in user and course creator/teacher
-  // Add additional permission checks if necessary based on your app's logic
-  // For example, if course.teacher_id should match loggedInUser.user_id
+  if (isErrorCourse) {
+    return (
+      <Container className="mt-3">
+        <Alert variant="danger">Error loading course: {isErrorCourse.message || 'Unknown error'}</Alert>
+      </Container>
+    );
+  }
+
+  if (!course) {
+    return (
+      <Container className="mt-3">
+        <Alert variant="warning">Course not found.</Alert>
+      </Container>
+    );
+  }
 
   return (
-    <div>
-      <button onClick={() => setActiveComponent('CourseList')}>&larr; Back to Courses</button>
-      <h2>Manage Enrollments for: {course.title}</h2>
+    <Container fluid="md" className="mt-4">
+      <Card>
+        <Card.Header className="d-flex justify-content-between align-items-center">
+          <Button variant="outline-secondary" size="sm" onClick={() => setActiveComponent('CourseList')}>
+            &larr; Back to Courses
+          </Button>
+          <Card.Title as="h2" className="mb-0">Manage Enrollments</Card.Title>
+          <div style={{ minWidth: '120px' }}></div> {/* Spacer for centering title if needed */}
+        </Card.Header>
+        <Card.Body>
+          <h4 className="mb-3 text-center">Course: {course.title || 'Unknown Course'}</h4>
 
-      {successMessage && <p style={{ color: 'green' }}>{successMessage}</p>}
-      {errorMessage && <p style={{ color: 'red' }}>{errorMessage}</p>}
+          {notification && (
+            <Alert variant={notification.type} onClose={() => setNotification(null)} dismissible className="mt-3">
+              {notification.message}
+            </Alert>
+          )}
 
-      <h3>Enrolled Students</h3>
-      {isLoadingEnrollments && <p>Loading students...</p>}
-      {isErrorEnrollments && <p>Error loading students: {isErrorEnrollments.message || 'Unknown error'}</p>}
-      {enrollments && enrollments.length > 0 ? (
-        <ul className="list-group mb-3"> {/* Using Bootstrap list-group for better styling */}
-          {enrollments.map(enrollment => (
-            <StudentInfo
-              key={enrollment.enrollment_id || enrollment.student_id}  // Changed fallback to student_id
-              studentId={enrollment.student_id}                       // Changed to student_id
-              onRemoveStudent={handleRemoveStudent}
-            />
-          ))}
-        </ul>
-      ) : (
-        !isLoadingEnrollments && <p>No students are currently enrolled in this course.</p>
-      )}
+          <Row>
+            <Col md={6}>
+              <Card className="mb-3">
+                <Card.Body>
+                  <Card.Title as="h5">Enrolled Students</Card.Title>
+                  {isLoadingEnrollments && (
+                    <div className="text-center my-3">
+                      <Spinner animation="border" size="sm" /> <p className="d-inline-block ms-2 mb-0">Loading students...</p>
+                    </div>
+                  )}
+                  {isErrorEnrollments && (
+                    <Alert variant="danger" className="mt-2">Error loading students: {isErrorEnrollments.message || 'Unknown error'}</Alert>
+                  )}
+                  {!isLoadingEnrollments && !isErrorEnrollments && enrollments && enrollments.length > 0 ? (
+                    <ListGroup>
+                      {enrollments.map(enrollment => (
+                        <StudentInfo
+                          key={enrollment.enrollment_id || enrollment.student_id}
+                          studentId={enrollment.student_id}
+                          onRemoveStudent={handleRemoveStudent}
+                        />
+                      ))}
+                    </ListGroup>
+                  ) : (
+                    !isLoadingEnrollments && !isErrorEnrollments && <Alert variant="info" className="mt-2">No students are currently enrolled.</Alert>
+                  )}
+                </Card.Body>
+              </Card>
+            </Col>
 
-      <h3>Add Student</h3>
-      <input
-        type="text"
-        placeholder="Search by username"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-      />
-      {/* Search button can be added if preferred over search-on-type with debounce */}
-      {/* <button onClick={() => setDebouncedSearchTerm(searchTerm)}>Search</button> */}
+            <Col md={6}>
+              <Card>
+                <Card.Body>
+                  <Card.Title as="h5">Add Student</Card.Title>
+                  <Form.Group controlId="searchStudentInput" className="my-3">
+                    <Form.Label>Search by Username</Form.Label>
+                    <Form.Control
+                      type="search"
+                      placeholder="Enter username..."
+                      value={searchTerm}
+                      onChange={e => setSearchTerm(e.target.value)}
+                    />
+                  </Form.Group>
 
-      {isLoadingSearch && debouncedSearchTerm && <p>Searching...</p>}
-      {isErrorSearch && debouncedSearchTerm && <p>Error searching users: {isErrorSearch.message || 'Unknown error'}</p>}
+                  {isLoadingSearch && debouncedSearchTerm && (
+                    <div className="text-center my-3">
+                      <Spinner animation="border" size="sm"/> <p className="d-inline-block ms-2 mb-0">Searching...</p>
+                    </div>
+                  )}
+                  {isErrorSearch && debouncedSearchTerm && (
+                    <Alert variant="danger" className="mt-2">Error searching users: {isErrorSearch.message || 'Unknown error'}</Alert>
+                  )}
 
-      {debouncedSearchTerm && searchResults.length > 0 && (
-        <ul>
-          {searchResults.map(user => (
-            <li key={user.user_id}>
-              {user.username} (ID: {user.user_id})
-              <button
-                onClick={() => handleAddStudent(user.user_id)}
-                style={{ marginLeft: '10px' }}
-              >
-                Add
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {debouncedSearchTerm && !isLoadingSearch && searchResults.length === 0 && (
-        <p>No users found matching your search, or all found users are already enrolled.</p>
-      )}
-    </div>
+                  {debouncedSearchTerm && !isLoadingSearch && !isErrorSearch && searchResults.length > 0 && (
+                    <ListGroup>
+                      {searchResults.map(user => (
+                        <ListGroup.Item key={user.user_id} className="d-flex justify-content-between align-items-center">
+                          {user.username} (ID: {user.user_id})
+                          <Button variant="success" size="sm" onClick={() => handleAddStudent(user.user_id)}>Add</Button>
+                        </ListGroup.Item>
+                      ))}
+                    </ListGroup>
+                  )}
+                  {debouncedSearchTerm && !isLoadingSearch && !isErrorSearch && searchResults.length === 0 && (
+                    <Alert variant="info" className="mt-2">No users found matching your search, or all found users are already enrolled.</Alert>
+                  )}
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+        </Card.Body>
+      </Card>
+    </Container>
   );
 }
 
