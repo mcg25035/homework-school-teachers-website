@@ -58,6 +58,8 @@ async function performMutation(url, method, data, revalidateKey = null) {
         mutate(key => key.startsWith(`${API_ENDPOINT}/file.php`), { revalidate: true });
       } else if (url.includes('/permission.php')) {
         mutate(key => key.startsWith(`${API_ENDPOINT}/permission.php`), { revalidate: true });
+      } else if (url.includes('/template')) { // ADD THIS FOR TEMPLATE API
+        mutate(key => key.startsWith(`${API_ENDPOINT}/template`), { revalidate: true });
       }
 
 
@@ -442,6 +444,93 @@ export async function updateTeacherPage(userId, content, variables) {
 }
 
 // (Make sure this is placed before the last export default or at a similar appropriate location with other API groups)
+
+// Template API
+export function useTemplates(params = {}) {
+  let queryString = '';
+  if (params) {
+    const query = new URLSearchParams();
+    if (params.template_id) {
+      query.set('template_id', params.template_id);
+    }
+    if (params.creator_id) {
+      query.set('creator_id', params.creator_id);
+    }
+    if (params.shared !== undefined) { // Check for undefined to allow shared=false
+      query.set('shared', params.shared);
+    }
+    queryString = query.toString() ? `?${query.toString()}` : '';
+  }
+
+  const { data, error } = useSWR(`${API_ENDPOINT}/template${queryString}`, fetcher);
+
+  // Handle single template vs multiple templates
+  let template = null;
+  let templates = [];
+
+  if (data?.success) {
+    if (params.template_id && !Array.isArray(data.data)) {
+      template = data.data;
+    } else if (Array.isArray(data.data)) {
+      templates = data.data;
+    } else if (data.data) { // If not an array but data exists (e.g. single item from non-template_id query)
+      templates = [data.data];
+    }
+  }
+
+
+  return {
+    template: template, // For single template fetches
+    templates: templates, // For list fetches
+    isLoading: !error && !data,
+    isError: error,
+  };
+}
+
+export async function createTemplate(templateData) {
+  // Define revalidation keys
+  // 1. Revalidate all templates (if a general list is shown)
+  // 2. Revalidate templates by creator_id (if specific user's templates are shown)
+  // performMutation will also trigger its own broad revalidation for /template
+  const revalidateKeys = [`${API_ENDPOINT}/template`];
+  if (templateData.creator_id) {
+    revalidateKeys.push(`${API_ENDPOINT}/template?creator_id=${templateData.creator_id}`);
+  }
+
+  // SWR's mutate can accept an array of keys to revalidate
+  // However, our performMutation currently accepts one revalidateKey.
+  // We'll rely on the general /template invalidation in performMutation for now,
+  // and specific components can use the mutate function from useSWR if finer-grained control is needed after creation.
+  // Or, we enhance performMutation to accept an array of keys.
+  // For now, let's pass a primary key if one is clearly identifiable.
+  const primaryRevalidateKey = templateData.creator_id
+    ? `${API_ENDPOINT}/template?creator_id=${templateData.creator_id}`
+    : `${API_ENDPOINT}/template`;
+
+  return performMutation(`${API_ENDPOINT}/template`, 'POST', templateData, primaryRevalidateKey);
+}
+
+export async function updateTemplate(templateId, templateData) {
+  const specificTemplateKey = `${API_ENDPOINT}/template?template_id=${templateId}`;
+  // Potentially, also revalidate lists where this template might appear.
+  // The general '/template' revalidation in performMutation will cover broader cases.
+  // If creator_id is part of templateData or can be inferred, that list could also be specifically revalidated.
+  return performMutation(`${API_ENDPOINT}/template?template_id=${templateId}`, 'PUT', templateData, specificTemplateKey);
+}
+
+export async function deleteTemplate(templateId, creatorId = null) {
+  // Revalidate the general list and potentially the creator's list if creatorId is provided.
+  const revalidateKeys = [`${API_ENDPOINT}/template`];
+  if (creatorId) {
+    revalidateKeys.push(`${API_ENDPOINT}/template?creator_id=${creatorId}`);
+  }
+  // Similar to createTemplate, performMutation takes a single key.
+  // We rely on the general /template invalidation, or components can trigger specific revalidations.
+  const primaryRevalidateKey = creatorId
+    ? `${API_ENDPOINT}/template?creator_id=${creatorId}`
+    : `${API_ENDPOINT}/template`;
+  return performMutation(`${API_ENDPOINT}/template?template_id=${templateId}`, 'DELETE', null, primaryRevalidateKey);
+}
 
 // User API
 /**

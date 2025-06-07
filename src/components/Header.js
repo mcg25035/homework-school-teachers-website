@@ -25,6 +25,12 @@ function Header({ functionList, setActiveComponent, isLoggedIn, user, logout }) 
                 My Courses
               </Nav.Link>
             )}
+            {/* Add Teacher Template Manager link here if user is logged in and is a teacher */}
+            {isLoggedIn && user && user.role === 'teacher' && (
+              <Nav.Link onClick={() => setActiveComponent('TeacherTemplateManager')}>
+                Manage Templates
+              </Nav.Link>
+            )}
           </Nav>
           <Nav>
             {isLoggedIn ? (
