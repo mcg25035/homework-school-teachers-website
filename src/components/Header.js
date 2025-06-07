@@ -19,6 +19,12 @@ function Header({ functionList, setActiveComponent, isLoggedIn, user, logout }) 
                 {item.display}
               </Nav.Link>
             ))}
+            {/* Add My Courses link here if user is logged in */}
+            {isLoggedIn && (
+              <Nav.Link onClick={() => setActiveComponent('MyCourses')}>
+                My Courses
+              </Nav.Link>
+            )}
           </Nav>
           <Nav>
             {isLoggedIn ? (
