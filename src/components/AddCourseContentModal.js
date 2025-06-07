@@ -12,15 +12,26 @@ const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user
   const fetchArticlesCondition = show && user && user.user_id && contentType === 'article';
   const fetchFilesCondition = show && user && user.user_id && contentType === 'file';
 
+  console.log('AddCourseContentModal - SWR Hook Params:', {
+      userIdForArticle: fetchArticlesCondition ? user.user_id : null,
+      userIdForFile: fetchFilesCondition ? user.user_id : null,
+      fetchArticlesCondition,
+      fetchFilesCondition
+  });
+
   const { articles, isLoading: loadingArticles, isError: errorArticles } = useArticle(
     null, // articleId (not fetching a specific one)
     fetchArticlesCondition ? user.user_id : null // teacherId
   );
 
+  console.log('AddCourseContentModal - useArticle SWR:', { articles, loadingArticles, errorArticles });
+
   const { files, isLoading: loadingFiles, isError: errorFiles } = useFile(
     null, // fileId (not fetching a specific one)
     fetchFilesCondition ? user.user_id : null // uploaderId
   );
+
+  console.log('AddCourseContentModal - useFile SWR:', { files, loadingFiles, errorFiles });
 
   useEffect(() => {
     if (show) {
@@ -37,6 +48,7 @@ const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user
   useEffect(() => {
     if (!show) return;
 
+    console.log('AddCourseContentModal - User for error check:', user);
     if (!user || !user.user_id) {
       setCurrentError("User information is not available. Cannot load items.");
       return;
