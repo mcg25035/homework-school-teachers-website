@@ -3,13 +3,27 @@ import { Modal, Button, Form, Spinner, Alert, ToggleButtonGroup, ToggleButton } 
 import { useArticle, useFile } from '../api';
 
 const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user }) => {
-  console.log('AddCourseContentModal - Initial Props:', { show, courseId, user });
-  const [contentType, setContentType] = useState('article'); // 'article' or 'file'
+  // Ensure this log is the VERY FIRST line inside the function component
+  console.log('AddCourseContentModal - Initial Props:', { show, courseId, userPropReceived: user });
+
+  const [contentType, setContentType] = useState('article');
   const [selectedItem, setSelectedItem] = useState('');
-  const [currentError, setCurrentError] = useState(null); // Renamed from error to avoid conflict
+  const [currentError, setCurrentError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // SWR Hooks
+  // Reset state when modal is shown or hidden
+  useEffect(() => {
+    if (show) {
+      setSelectedItem('');
+      setCurrentError(null);
+      setSubmitting(false);
+      // setContentType('article'); // Reset to article only if it's not driven by user choice during visibility
+    } else {
+      // Optionally reset content type when modal is fully closed if desired
+      // setContentType('article');
+    }
+  }, [show]);
+
   const fetchArticlesCondition = show && user && user.user_id && contentType === 'article';
   const fetchFilesCondition = show && user && user.user_id && contentType === 'file';
 
@@ -17,56 +31,41 @@ const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user
       userIdForArticle: fetchArticlesCondition ? user.user_id : null,
       userIdForFile: fetchFilesCondition ? user.user_id : null,
       fetchArticlesCondition,
-      fetchFilesCondition
+      fetchFilesCondition,
+      userObjectForCondition: user // Log user object specifically for condition check
   });
 
   const { articles, isLoading: loadingArticles, isError: errorArticles } = useArticle(
-    null, // articleId (not fetching a specific one)
-    fetchArticlesCondition ? user.user_id : null // teacherId
+    null,
+    fetchArticlesCondition ? user.user_id : null
   );
 
   console.log('AddCourseContentModal - useArticle SWR:', { articles, loadingArticles, errorArticles });
 
   const { files, isLoading: loadingFiles, isError: errorFiles } = useFile(
-    null, // fileId (not fetching a specific one)
-    fetchFilesCondition ? user.user_id : null // uploaderId
+    null,
+    fetchFilesCondition ? user.user_id : null
   );
 
   console.log('AddCourseContentModal - useFile SWR:', { files, loadingFiles, errorFiles });
 
   useEffect(() => {
-    if (show) {
-        setSelectedItem('');
-        setCurrentError(null);
-        setSubmitting(false);
-        // Consider resetting contentType to 'article' here if it should always default on open
-        // For now, it retains selection unless modal is fully closed and reopened.
-    } else {
-         setContentType('article'); // Reset to default when closing/hidden
-    }
-  }, [show]);
-
-  useEffect(() => {
     if (!show) return;
-
-    console.log('AddCourseContentModal - User for error check:', user);
+    console.log('AddCourseContentModal - User for error check (in useEffect):', user);
     if (!user || !user.user_id) {
       setCurrentError("User information is not available. Cannot load items.");
       return;
     }
-    // Prioritize SWR hook errors
     if (contentType === 'article' && errorArticles) {
       setCurrentError(`Failed to load your articles: ${errorArticles.message || 'Unknown error'}`);
     } else if (contentType === 'file' && errorFiles) {
       setCurrentError(`Failed to load your files: ${errorFiles.message || 'Unknown error'}`);
     } else {
-       // Clear error only if no SWR error is active for the current type
       if (!((contentType === 'article' && errorArticles) || (contentType === 'file' && errorFiles))) {
           setCurrentError(null);
       }
     }
   }, [contentType, errorArticles, errorFiles, user, show]);
-
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -76,20 +75,16 @@ const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user
     }
     setSubmitting(true);
     setCurrentError(null);
-
-    const contentData = {
-      course_id: courseId,
-    };
+    const contentData = { course_id: courseId };
     if (contentType === 'article') {
       contentData.article_id = parseInt(selectedItem);
     } else {
       contentData.file_id = parseInt(selectedItem);
     }
-
     try {
         await onAddContent(contentData);
     } catch (apiError) {
-        console.error('Error during onAddContent call from modal context:', apiError);
+        console.error('Error in onAddContent from modal:', apiError);
         setCurrentError(`Failed to add content: ${apiError.message}`);
         setSubmitting(false);
     }
@@ -100,9 +95,6 @@ const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user
         handleClose();
     }
   };
-
-  const currentItems = contentType === 'article' ? articles : files;
-  const isLoadingCurrentItems = contentType === 'article' ? loadingArticles : loadingFiles;
 
   return (
     <Modal show={show} onHide={handleActualClose} backdrop={submitting ? 'static' : true} keyboard={!submitting}>
@@ -117,42 +109,32 @@ const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user
             <div>
               <ToggleButtonGroup
                 type="radio"
-                name={`contentType-modal-${courseId}`} // Ensure unique name for radio group
+                name={`contentType-${courseId}`}
                 value={contentType}
                 onChange={(val) => {
-                    if (!submitting && !(val === 'article' && loadingArticles) && !(val === 'file' && loadingFiles)) {
+                    if(!submitting && !(val === 'article' && loadingArticles) && !(val === 'file' && loadingFiles)) {
                         setContentType(val);
                         setSelectedItem('');
-                        setCurrentError(null); // Clear error on type change
+                        setCurrentError(null);
                     }
                 }}
                 className="mb-2"
               >
-                <ToggleButton
-                  id={`tbg-modal-radio-article-${courseId}`}
-                  value={'article'}
-                  variant="outline-primary"
-                  disabled={submitting || loadingArticles}
-                >
+                <ToggleButton id={`tbg-modal-radio-article-${courseId}`} value={'article'} variant="outline-primary" disabled={submitting || loadingArticles}>
                   Article
                 </ToggleButton>
-                <ToggleButton
-                  id={`tbg-modal-radio-file-${courseId}`}
-                  value={'file'}
-                  variant="outline-primary"
-                  disabled={submitting || loadingFiles}
-                >
+                <ToggleButton id={`tbg-modal-radio-file-${courseId}`} value={'file'} variant="outline-primary" disabled={submitting || loadingFiles}>
                   File
                 </ToggleButton>
               </ToggleButtonGroup>
             </div>
           </Form.Group>
 
-          {isLoadingCurrentItems ? (
+          { (contentType === 'article' && loadingArticles) || (contentType === 'file' && loadingFiles) ? (
             <div className="text-center my-3">
               <Spinner animation="border" size="sm" /> Loading your {contentType}s...
             </div>
-          ) : currentItems && currentItems.length > 0 ? (
+          ) : (contentType === 'article' ? articles : files) && (contentType === 'article' ? articles : files).length > 0 ? (
             <Form.Group className="mb-3">
               <Form.Label>Select {contentType === 'article' ? 'Article' : 'File'}:</Form.Label>
               <Form.Select
@@ -163,7 +145,7 @@ const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user
                 required
               >
                 <option value="">-- Select an item --</option>
-                {currentItems.map((item) => {
+                {(contentType === 'article' ? articles : files).map((item) => {
                     const id = item.article_id || item.file_id || item.id;
                     const name = contentType === 'article' ? item.title : item.name;
                     return (
@@ -175,12 +157,9 @@ const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user
               </Form.Select>
             </Form.Group>
           ) : (
-             !currentError && show && ( // Only show "no items" if not loading and no error
-                <Alert variant="info">
-                You don't have any {contentType}s to add, or they could not be loaded.
-                {contentType === 'article' ? 'Try creating some articles first via the Articles page.' : 'Try uploading some files first.'}
-                </Alert>
-             )
+            <Alert variant="info">
+              {!currentError && show ? `You don't have any ${contentType}s to add, or they could not be loaded. Try creating some first.` : ''}
+            </Alert>
           )}
 
           <div className="d-flex justify-content-end mt-4">
@@ -188,10 +167,9 @@ const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user
               Cancel
             </Button>
             <Button
-                variant="primary"
-                type="submit"
-                disabled={isLoadingCurrentItems || !currentItems || currentItems.length === 0 || !selectedItem || submitting}
-            >
+              variant="primary"
+              type="submit"
+              disabled={ (contentType === 'article' && loadingArticles) || (contentType === 'file' && loadingFiles) || !(contentType === 'article' ? articles : files) || (contentType === 'article' ? articles : files).length === 0 || !selectedItem || submitting}>
               {submitting ? <><Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" /> Adding...</> : 'Add to Course'}
             </Button>
           </div>
