@@ -21,7 +21,7 @@ const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user
   }, [show]);
 
   useEffect(() => {
-    if (show && user && user.id) {
+    if (show && user && user.user_id) {
       const fetchItems = async () => {
         setLoadingItems(true);
         setError(null);
@@ -29,9 +29,9 @@ const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user
         try {
           let fetchedItems = [];
           if (contentType === 'article') {
-            fetchedItems = await getMyArticles(user.id);
+            fetchedItems = await getMyArticles(user.user_id);
           } else {
-            fetchedItems = await getMyFiles(user.id);
+            fetchedItems = await getMyFiles(user.user_id);
           }
           setItems(fetchedItems || []); // Ensure items is always an array
         } catch (err) {
@@ -42,7 +42,7 @@ const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user
         setLoadingItems(false);
       };
       fetchItems();
-    } else if (show && (!user || !user.id)) {
+    } else if (show && (!user || !user.user_id)) {
         setError("User information is not available. Cannot load items.");
         setItems([]);
         setLoadingItems(false);

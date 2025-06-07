@@ -22,7 +22,6 @@ import TeacherPublicPageView from './components/TeacherPublicPageView';
 import DevTeacherPagePortal from './components/DevTeacherPagePortal'; // Import new component
 import ManageCourseEnrollment from './components/ManageCourseEnrollment'; // Import ManageCourseEnrollment
 import MyCourses from './components/MyCourses'; // Import MyCourses
-import TeacherTemplateManager from './components/TeacherTemplateManager'; // Import TeacherTemplateManager
 import CourseContent from './components/CourseContent'; // Import CourseContent
 
 const components = {
@@ -46,7 +45,6 @@ const components = {
   DevTeacherPagePortal: DevTeacherPagePortal,   // Add new component to the map
   ManageCourseEnrollment: ManageCourseEnrollment, // Add ManageCourseEnrollment to the map
   MyCourses: MyCourses, // Add MyCourses to the map
-  TeacherTemplateManager: TeacherTemplateManager, // Add TeacherTemplateManager to the map
   CourseContent: CourseContent, // Add CourseContent to the map
 };
 
