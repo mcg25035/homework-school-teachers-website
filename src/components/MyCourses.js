@@ -1,15 +1,34 @@
-import React from 'react'; // Removed useState and useEffect as they are handled by the hook
-import { useStudentCourses } from '../api'; // Import the new hook
+import React from 'react';
+import { useStudentCourses, useLoginStatus } from '../api'; // Import useLoginStatus
 
 const MyCourses = () => {
-  const { courses, isLoading, isError } = useStudentCourses();
+  const { user, isLoading: isAuthLoading, isLoggedIn } = useLoginStatus();
 
-  if (isLoading) {
+  // Get userId if user is logged in and user object is available
+  const userId = user && isLoggedIn ? user.user_id : null;
+
+  // Pass userId to useStudentCourses. Hook will not fetch if userId is null.
+  const { courses, isLoading: isLoadingCourses, isError } = useStudentCourses(userId);
+
+  // Handle auth loading state
+  if (isAuthLoading) {
+    return <div>Loading user information...</div>;
+  }
+
+  // Handle case where user is not logged in or userId could not be determined
+  if (!userId) {
+    // This message might need adjustment based on whether isLoggedIn is false or user object is missing user_id
+    if (!isLoggedIn) {
+        return <div>Please log in to view your courses.</div>;
+    }
+    return <div>Could not determine user ID. Unable to fetch courses.</div>;
+  }
+
+  // Handle courses loading state
+  if (isLoadingCourses) {
     return <div>Loading courses...</div>;
   }
 
-  // useStudentCourses hook sets isError to an Error object if something went wrong.
-  // We can display a generic message or inspect isError for more details if needed.
   if (isError) {
     console.error("Failed to fetch courses:", isError);
     return <div>Error: Failed to load courses. Please try again later.</div>;
@@ -23,8 +42,9 @@ const MyCourses = () => {
       ) : (
         <ul>
           {courses.map(course => (
-            // Assuming course objects have 'id' and 'name' properties
-            <li key={course.id}>{course.name}</li>
+            // Ensure unique key: course.id might not be unique if enrollments have their own IDs
+            // Assuming the transformation in useStudentCourses ensures 'id' is course_id
+            <li key={course.id || course.course_id}>{course.name || course.course_name}</li>
           ))}
         </ul>
       )}

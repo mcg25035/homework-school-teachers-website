@@ -597,15 +597,36 @@ export async function updateCalendarEvent(eventId, eventData) {
 
 // Student Courses API
 /**
- * Fetches courses for the currently logged-in student.
+ * Fetches enrolled courses for a given student.
+ * @param {number|string} userId - The ID of the student.
  * @returns {{courses: Object[], isLoading: boolean, isError: Error}}
  */
-export function useStudentCourses() {
-  const url = `${API_ENDPOINT}/student/courses`; // Assuming /api prefix is handled by API_ENDPOINT
-  const { data, error } = useSWR(url, fetcher);
+export function useStudentCourses(userId) {
+  // If userId is not provided, don't fetch data
+  const url = userId ? `${API_ENDPOINT}/enrollment.php?user_id=${userId}` : null;
+  // The SWR key is the URL itself. If URL is null, SWR won't fetch.
+  const { data: apiResponse, error } = useSWR(url, fetcher);
+
+  let processedCourses = [];
+  if (userId && apiResponse && apiResponse.success) {
+    const enrollments = Array.isArray(apiResponse.data) ? apiResponse.data : (apiResponse.data ? [apiResponse.data] : []);
+    processedCourses = enrollments.map(enrollment => {
+      if (enrollment.course && typeof enrollment.course === 'object') {
+        // Handles structure like: { ..., course: { id: ..., name: ... } }
+        return { id: enrollment.course.id, name: enrollment.course.name, ...enrollment.course };
+      } else if (enrollment.course_id && enrollment.course_name) {
+        // Handles structure like: { ..., course_id: ..., course_name: ... }
+        return { id: enrollment.course_id, name: enrollment.course_name, ...enrollment };
+      }
+      // Fallback if structure is unexpected, or if course details are missing
+      // It's better to return a partial object or null and filter out later if necessary
+      return null;
+    }).filter(course => course !== null); // Remove any null entries
+  }
 
   return {
-    courses: data && data.success ? (Array.isArray(data.data) ? data.data : []) : [],
+    courses: processedCourses,
+    isLoading: userId ? (!error && !apiResponse) : false, // Only loading if userId was provided
     isLoading: !error && !data,
     isError: error
   };
