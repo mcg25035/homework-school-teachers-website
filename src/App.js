@@ -26,12 +26,12 @@ function App() {
     { component: 'ArticleList', display: '文章' }, // Assuming general access for logged-in users
     { component: 'MyBookings', display: '預約時間' }, // Assuming general access for logged-in users
     { component: 'MyCourses', display: 'My Courses' }, // For all logged-in users
-    { component: 'TeacherBookings', display: '查看預約', roles: ['teacher'] },
-    { component: 'TeacherCalendar', display: '行事曆', roles: ['teacher'] },
-    { component: 'TeacherPersonalPageEditor', display: '編輯個人頁面', roles: ['teacher'] },
-    { component: 'TeacherTemplateManager', display: 'Manage Templates', roles: ['teacher'] },
+    { component: 'TeacherBookings', display: '查看預約' },
+    { component: 'TeacherCalendar', display: '行事曆' },
+    { component: 'TeacherPersonalPageEditor', display: '編輯個人頁面' },
+    { component: 'TeacherTemplateManager', display: 'Manage Templates' },
     // Add the new portal entry:
-    { component: 'DevTeacherPagePortal', display: 'Dev: View Teacher Page', roles: ['teacher'] },
+    { component: 'DevTeacherPagePortal', display: 'Dev: View Teacher Page' },
   ];
 
   if (isLoginStatusLoading) {
