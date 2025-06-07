@@ -607,25 +607,27 @@ export function useStudentCourses(userId) {
   // The SWR key is the URL itself. If URL is null, SWR won't fetch.
   const { data: apiResponse, error } = useSWR(url, fetcher);
 
-  let processedCourses = [];
-  if (userId && apiResponse && apiResponse.success) {
-    const enrollments = Array.isArray(apiResponse.data) ? apiResponse.data : (apiResponse.data ? [apiResponse.data] : []);
-    processedCourses = enrollments.map(enrollment => {
-      if (enrollment.course && typeof enrollment.course === 'object') {
-        // Handles structure like: { ..., course: { id: ..., name: ... } }
-        return { id: enrollment.course.id, name: enrollment.course.name, ...enrollment.course };
-      } else if (enrollment.course_id && enrollment.course_name) {
-        // Handles structure like: { ..., course_id: ..., course_name: ... }
-        return { id: enrollment.course_id, name: enrollment.course_name, ...enrollment };
+  let transformedCourses = [];
+  if (userId && apiResponse && apiResponse.success && apiResponse.data) {
+    const enrollments = Array.isArray(apiResponse.data) ? apiResponse.data : [];
+
+    transformedCourses = enrollments.map(enrollment => {
+      // Ensure course_id exists before creating the placeholder name
+      if (enrollment && typeof enrollment.course_id !== 'undefined') {
+        return {
+          id: enrollment.course_id,
+          name: `Course ${enrollment.course_id}` // Placeholder name
+          // enrollment_id: enrollment.enrollment_id, // Optionally include other enrollment details
+          // student_id: enrollment.student_id,
+          // enrolled_at: enrollment.enrolled_at
+        };
       }
-      // Fallback if structure is unexpected, or if course details are missing
-      // It's better to return a partial object or null and filter out later if necessary
-      return null;
-    }).filter(course => course !== null); // Remove any null entries
+      return null; // Or handle enrollments without course_id differently
+    }).filter(course => course !== null); // Filter out any nulls if course_id was missing
   }
 
   return {
-    courses: processedCourses,
+    courses: transformedCourses,
     isLoading: userId ? (!error && !apiResponse) : false, // Only loading if userId was provided
     isError: error
   };
