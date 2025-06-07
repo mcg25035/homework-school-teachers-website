@@ -8,6 +8,7 @@ import {
   useLoginStatus,
   // getUserById // Import if needed later
 } from '../api';
+import StudentInfo from './StudentInfo'; // Import StudentInfo
 
 function ManageCourseEnrollment({ course_id, setActiveComponent }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,8 +40,8 @@ function ManageCourseEnrollment({ course_id, setActiveComponent }) {
   // Filter search results to exclude already enrolled students
   useEffect(() => {
     if (searchedUsers && Array.isArray(searchedUsers) && enrollments && Array.isArray(enrollments)) {
-      const enrolledUserIds = enrollments.map(enrollment => enrollment.user_id);
-      const filteredResults = searchedUsers.filter(user => !enrolledUserIds.includes(user.user_id));
+      const enrolledStudentIds = enrollments.map(enrollment => enrollment.student_id); // Changed to student_id
+      const filteredResults = searchedUsers.filter(user => !enrolledStudentIds.includes(user.user_id)); // user.user_id from search is correct
       setSearchResults(filteredResults);
     } else if (searchedUsers && Array.isArray(searchedUsers)) {
       setSearchResults(searchedUsers); // No enrollments yet, show all search results
@@ -115,18 +116,13 @@ function ManageCourseEnrollment({ course_id, setActiveComponent }) {
       {isLoadingEnrollments && <p>Loading students...</p>}
       {isErrorEnrollments && <p>Error loading students: {isErrorEnrollments.message || 'Unknown error'}</p>}
       {enrollments && enrollments.length > 0 ? (
-        <ul>
+        <ul className="list-group mb-3"> {/* Using Bootstrap list-group for better styling */}
           {enrollments.map(enrollment => (
-            <li key={enrollment.enrollment_id || enrollment.user_id}>
-              {/* Assumption: enrollment object contains user.username or similar */}
-              {enrollment.user?.username || `User ID: ${enrollment.user_id}`}
-              <button
-                onClick={() => handleRemoveStudent(enrollment.user_id)}
-                style={{ marginLeft: '10px' }}
-              >
-                Remove
-              </button>
-            </li>
+            <StudentInfo
+              key={enrollment.enrollment_id || enrollment.student_id}  // Changed fallback to student_id
+              studentId={enrollment.student_id}                       // Changed to student_id
+              onRemoveStudent={handleRemoveStudent}
+            />
           ))}
         </ul>
       ) : (
