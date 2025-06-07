@@ -58,19 +58,6 @@ function TeacherTemplateManager() {
     // mutate: revalidateSharedTemplates // SWR should auto-revalidate
   } = useTemplates(isLoggedIn ? { shared: true } : {});
 
-  // Filter out own templates from shared templates
-  const filteredSharedTemplates = React.useMemo(() => {
-    if (!sharedTemplatesData || !user?.user_id) {
-      return [];
-    }
-    const result = sharedTemplatesData.filter(t => {
-      const condition = t.creator_id !== user.user_id;
-      return condition;
-    });
-    return result;
-  }, [sharedTemplatesData, user?.user_id]);
-
-
   // Create/Edit Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
@@ -287,12 +274,13 @@ function TeacherTemplateManager() {
               {isLoadingSharedTemplates && <div className="text-center p-3"><Spinner animation="border" /></div>}
               {errorSharedTemplates && <Alert variant="danger">Error loading shared templates: {errorSharedTemplates.message}</Alert>}
               {!isLoadingSharedTemplates && !errorSharedTemplates && (
-                filteredSharedTemplates && filteredSharedTemplates.length > 0 ? (
+                sharedTemplatesData && sharedTemplatesData.length > 0 ? (
                   <ListGroup>
-                    {filteredSharedTemplates.map(template => (
+                    {sharedTemplatesData.map(template => (
                       <ListGroup.Item key={template.template_id} className="d-flex justify-content-between align-items-center">
                         <div>
                           <strong>{template.name}</strong>
+                          {/* Displaying creator_id as it comes from the API */}
                           <small className="d-block text-muted">
                             Creator ID: {template.creator_id} |
                             Last updated: {new Date(template.updated_at).toLocaleDateString()}
@@ -306,7 +294,7 @@ function TeacherTemplateManager() {
                     ))}
                   </ListGroup>
                 ) : (
-                  <Alert variant="info">No templates are currently shared by other users (after filtering).</Alert>
+                  <Alert variant="info">No templates are currently shared by any users.</Alert>
                 )
               )}
             </Tab>
