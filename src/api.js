@@ -452,54 +452,69 @@ export async function updateTeacherPage(userId, content, variables) {
  * @returns {{users: User[] | User | null, isLoading: boolean, isError: Error}}
  */
 export function useUsers(params = {}) {
-  // Handle null or undefined params immediately
-  if (params === null || typeof params === 'undefined') {
-    // If params.user_id was expected, users should be null. Otherwise, an empty array.
-    // However, without params, we don't know if user_id was "expected".
-    // Defaulting to empty array for users and false for isLoading seems safest.
-    return { users: [], isLoading: false, isError: null };
-  }
+  let fetchKey = null;
+  let isFetchingSpecificUser = false;
 
-  const query = new URLSearchParams(params);
-  const queryString = query.toString();
-  const url = `${API_ENDPOINT}/user.php${queryString ? '?' + queryString : ''}`;
-
-  const { data, error } = useSWR(url, fetcher);
-
-  // Ensure data.data is an array if it's not, for consistency,
-  // especially when fetching a single user by ID.
-  let usersData = null;
-  if (data && data.success) {
-    if (Array.isArray(data.data)) {
-      usersData = data.data;
-    } else if (data.data) {
-      // If a single user is fetched, API might return an object directly
-      usersData = [data.data];
-    } else {
-      usersData = []; // API returned success:true but data.data is null or undefined
+  if (params) {
+    isFetchingSpecificUser = !!params.user_id; // Are we trying to fetch a specific user?
+    if (params.user_id || (typeof params.username === 'string' && params.username.trim() !== '')) {
+      // Only set fetchKey if user_id is present, or username is a non-empty string.
+      const query = new URLSearchParams(params);
+      const queryString = query.toString();
+      if (queryString) { // Ensure there's something to query by
+        fetchKey = `${API_ENDPOINT}/user.php?${queryString}`;
+      }
     }
-  } else if (data && !data.success && params.user_id && !params.username) {
-    // If fetching a single user by ID and it's not found, API might return {success: false, message: "..."}
-    // In this specific case, we want to return null for a single user lookup that fails.
-    // For searches (e.g. by username), an empty array is more appropriate for "no results".
-    usersData = null;
-  } else {
-    usersData = []; // Default to empty array for other cases (error, no data, or search returning no results)
+    // Note: If params is an empty object {} or contains only empty username,
+    // fetchKey remains null, and no API call will be made to fetch all users.
+    // This is a change from previous behavior where {} would fetch all users.
+    // To fetch all users, a specific parameter like { all: true } could be introduced if needed.
   }
 
-  // If a specific user_id was passed and we expect a single user object
-  if (params.user_id && usersData && usersData.length === 1) {
-    usersData = usersData[0];
-  } else if (params.user_id && usersData && usersData.length === 0) {
-    // If user_id was provided but no user was found (e.g. API returns empty array or handled as such)
-    usersData = null;
+  const { data, error } = useSWR(fetchKey, fetcher);
+
+  let usersData = isFetchingSpecificUser ? null : [];
+
+  if (fetchKey && data) { // data will only be present if fetchKey was not null and SWR returned data
+    if (data.success) {
+      if (Array.isArray(data.data)) {
+        usersData = data.data;
+      } else if (data.data) {
+        usersData = [data.data]; // Wrap single object in array
+      } else {
+        usersData = []; // API success but data.data is null/undefined
+      }
+    } else if (!data.success && isFetchingSpecificUser && !params.username) {
+      // API call for a specific user failed (e.g., user not found)
+      usersData = null;
+    } else {
+      // General API failure for a search or other non-specific user fetch
+      usersData = [];
+    }
+  } else if (!fetchKey) {
+    // No fetch was made, maintain default initial state
+    usersData = isFetchingSpecificUser ? null : [];
+  }
+  // Error state (e.g. network error) will be handled by isError, usersData can remain as default
+
+  // If a specific user_id was requested (and fetch was attempted or not)
+  if (isFetchingSpecificUser) {
+    if (Array.isArray(usersData) && usersData.length === 1) {
+      usersData = usersData[0]; // Extract single user from array
+    } else if (Array.isArray(usersData) && usersData.length === 0) {
+      // If fetchKey was null (e.g. invalid user_id format passed in params preventing fetchKey construction)
+      // OR if fetch was made and API returned empty array for that user_id
+      usersData = null;
+    }
+    // If usersData is already a single object (from previous logic) or null, it's fine.
   }
 
+  const isLoading = fetchKey ? (!error && !data) : false;
 
   return {
-    users: usersData, // This can be an array of users, a single user object, or null
-    isLoading: !error && !data,
-    isError: error,
+    users: usersData,
+    isLoading,
+    isError: error || null, // Ensure isError is explicitly null if error is undefined
   };
 }
 
