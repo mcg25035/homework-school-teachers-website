@@ -637,130 +637,138 @@ export function useStudentCourses(userId) {
 
 // GET /api/course_content.php?course_id={course_id}
 export const getCourseContent = async (courseId) => {
-  console.log(`API CALL (Mock): getCourseContent for courseId: ${courseId}`);
-  await new Promise(resolve => setTimeout(resolve, 500));
-
-  // Retrieve token from localStorage
+  console.log(`API CALL (Real): getCourseContent for courseId: ${courseId}`);
   const token = localStorage.getItem('token');
-  if (!token) {
-    console.error("Mock API: No token found. User might not be logged in.");
-    // Simulate an unauthorized error, though the actual API handles this
-    // throw new Error("Unauthorized: Please log in.");
-    // For mock, let's return empty or specific error structure if needed by UI
-    // Corrected: Throw an error or return a promise that rejects
-    return Promise.reject(new Error("Unauthorized: Please log in."));
-  }
 
-  // Simulate checking permissions based on courseId (very basic mock)
-  if (courseId === "private_course_unauthorized") { // Example of a course user can't access
-    return Promise.reject(new Error("Forbidden: You are not authorized to view this course content."));
-  }
-
-  const mockApiResponse = {
-    success: true,
-    message: "Course content retrieved successfully.",
-    data: [
-      { id: 1, article_id: 101, file_id: null, create_time: "2023-10-26 10:00:00", course_id: parseInt(courseId), name: "Introduction Article", type: "article" },
-      { id: 2, article_id: null, file_id: 202, create_time: "2023-10-26 10:05:00", course_id: parseInt(courseId), name: "Syllabus.pdf", type: "file" },
-      { id: 3, article_id: 103, file_id: null, create_time: "2023-10-26 10:10:00", course_id: parseInt(courseId), name: "Chapter 1 Notes", type: "article" },
-    ].filter(item => item.course_id === parseInt(courseId)) // Ensure data matches courseId for mock
+  const headers = {
+    'Content-Type': 'application/json',
   };
 
-  // Adjusted to directly return data array on success, or reject promise on error.
-  if (mockApiResponse.success) {
-      return mockApiResponse.data;
-  } else {
-      // This part might not be reached if prior checks reject the promise.
-      const error = new Error(mockApiResponse.message || 'Failed to fetch course content.');
-      return Promise.reject(error);
+  // Add Authorization header if token exists, as per typical API security for fetching user-related data.
+  // The API documentation for GET /api/course_content.php implies user context is needed
+  // due to permission checks (public vs. private courses, user enrollment/ownership).
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await fetch(`${API_ENDPOINT}/course_content.php?course_id=${courseId}`, {
+      method: 'GET',
+      headers: headers,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      // If response is not OK (e.g., 400, 401, 403, 404, 500),
+      // use the message from the API response if available, otherwise a default error.
+      // This covers cases like "Unauthorized: Please log in.", "Forbidden: ...", "Not Found: ..."
+      throw new Error(result.message || `Error ${response.status}: Failed to fetch course content`);
+    }
+
+    // According to the API documentation, on HTTP 200 OK, the response is:
+    // { success: true, message: "Course content retrieved successfully.", data: [...] }
+    // or an error structure like { success: false, message: "..." } for logical errors handled by the backend (e.g. bad request if course_id required but missing)
+    if (result.success) {
+      return result.data; // This should be the array of content items.
+    } else {
+      // If the API itself returns success: false (even with a 200 OK, though less common for GETs),
+      // use its message.
+      throw new Error(result.message || 'API returned success: false but no error message.');
+    }
+  } catch (error) {
+    // This catch block handles network errors, JSON parsing errors, or errors thrown from above.
+    console.error('Error in getCourseContent:', error.message);
+    // Re-throw the error so the calling component (CourseContent.js) can catch it
+    // and update its UI (e.g., show an error message to the user).
+    throw error;
   }
 };
 
 // POST /api/course_content.php
 export const addCourseContent = async (courseId, articleId, fileId) => {
-  console.log(`API CALL (Mock): addCourseContent for courseId: ${courseId}`, { articleId, fileId });
-  await new Promise(resolve => setTimeout(resolve, 500));
+  console.log(`API CALL (Real): addCourseContent for courseId: ${courseId}`, { articleId, fileId });
   const token = localStorage.getItem('token');
 
-  if (!token) {
-    return {
-        success: false,
-        message: "Unauthorized: Please log in."
-    };
-  }
-
-  if (!courseId || (!articleId && !fileId)) {
-    return {
-        success: false,
-        message: "Bad Request: Course ID and either article_id or file_id is required."
-    };
-  }
-
-  const mockApiResponse = {
-    success: true,
-    message: "Course content added successfully.",
-    data: {
-      id: Math.floor(Math.random() * 1000) + 100
-    }
+  const headers = {
+    'Content-Type': 'application/json',
   };
-  console.log("Mock API: Content added, response:", mockApiResponse);
-  return mockApiResponse;
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const body = {
+    course_id: courseId,
+  };
+  if (articleId) {
+    body.article_id = articleId;
+  } else if (fileId) {
+    body.file_id = fileId;
+  }
+
+  // Basic validation, though API docs say course_id and one of article/file_id are required.
+  // The calling component (AddCourseContentModal) should ensure these are provided.
+  if (!body.course_id || (!body.article_id && !body.file_id)) {
+    console.error('addCourseContent: course_id and either article_id or file_id must be provided.');
+    // Return structure consistent with API error for client-side validation failure.
+    return { success: false, message: 'Bad Request: Course ID and either article_id or file_id is required from client-side check.' };
+  }
+
+  try {
+    const response = await fetch(`${API_ENDPOINT}/course_content.php`, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(body),
+    });
+
+    const result = await response.json();
+
+    // The API documentation specifies various success (201) and error (400, 401, 403, 500) responses.
+    // We'll return the parsed result directly, as CourseContent.js expects an object with 'success' and 'message'.
+    // If !response.ok, result should contain { success: false, message: "..." } from the API.
+    // If response.ok (e.g. 201), result should contain { success: true, message: "...", data: {id: ...} }.
+    return result;
+
+  } catch (error) {
+    console.error('Network or parsing error in addCourseContent:', error);
+    // Return an error structure consistent with API responses for unhandled errors.
+    return { success: false, message: error.message || 'Network error or failed to parse response.' };
+  }
 };
 
 // DELETE /api/course_content.php?id={content_id}
 export const deleteCourseContent = async (contentId) => {
-  console.log(`API CALL (Mock): deleteCourseContent for contentId: ${contentId}`);
-  await new Promise(resolve => setTimeout(resolve, 500));
+  console.log(`API CALL (Real): deleteCourseContent for contentId: ${contentId}`);
   const token = localStorage.getItem('token');
 
-  if (!token) {
-    return {
-        success: false,
-        message: "Unauthorized: Please log in."
-    };
+  const headers = {
+    'Content-Type': 'application/json', // Though DELETE might not strictly need a content-type for body, it's good practice for consistency or if API expects it for error responses.
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   if (!contentId) {
-    return {
-        success: false,
-        message: "Bad Request: Content ID is required."
-    };
+    console.error('deleteCourseContent: contentId must be provided.');
+    return { success: false, message: 'Bad Request: Content ID is required from client-side check.' };
   }
 
-  const mockApiResponse = {
-    success: true,
-    message: "Course content deleted successfully."
-  };
-  console.log("Mock API: Content deleted, response:", mockApiResponse);
-  return mockApiResponse;
-};
+  try {
+    const response = await fetch(`${API_ENDPOINT}/course_content.php?id=${contentId}`, {
+      method: 'DELETE',
+      headers: headers,
+    });
 
-export const getMyArticles = async (userId) => {
-  console.log(`API CALL (Mock): getMyArticles for userId: ${userId}`);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const token = localStorage.getItem('token');
-  if (!token && userId) {
-      console.warn("Mock API (getMyArticles): No token, returning empty for user-specific articles.");
-      return [];
-  }
-  return [
-    { id: 101, title: "My First Article" },
-    { id: 103, title: "Another Article I Wrote" },
-    { id: 105, title: "React Best Practices" },
-  ];
-};
+    const result = await response.json();
+    // Similar to addCourseContent, return the parsed result directly.
+    // The component (CourseContent.js) expects an object with 'success' and 'message'.
+    // API docs specify success (200 OK) or error (400, 401, 403, 404, 500) responses.
+    return result;
 
-export const getMyFiles = async (userId) => {
-  console.log(`API CALL (Mock): getMyFiles for userId: ${userId}`);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const token = localStorage.getItem('token');
-  if (!token && userId) {
-      console.warn("Mock API (getMyFiles): No token, returning empty for user-specific files.");
-      return [];
+  } catch (error) {
+    console.error('Network or parsing error in deleteCourseContent:', error);
+    return { success: false, message: error.message || 'Network error or failed to parse response.' };
   }
-  return [
-    { id: 202, name: "Lecture Slides Week 1.pdf" },
-    { id: 205, name: "Project Requirements.docx" },
-    { id: 208, name: "Dataset.csv" },
-  ];
 };

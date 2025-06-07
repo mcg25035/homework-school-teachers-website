@@ -1,62 +1,68 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Spinner, Alert, ToggleButtonGroup, ToggleButton } from 'react-bootstrap';
-import { getMyArticles, getMyFiles } from '../api'; // Assuming these API functions exist
+import { useArticle, useFile } from '../api';
 
 const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user }) => {
   const [contentType, setContentType] = useState('article'); // 'article' or 'file'
   const [selectedItem, setSelectedItem] = useState('');
-  const [items, setItems] = useState([]); // Holds articles or files
-  const [loadingItems, setLoadingItems] = useState(false);
-  const [error, setError] = useState(null);
+  const [currentError, setCurrentError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // SWR Hooks
+  const fetchArticlesCondition = show && user && user.user_id && contentType === 'article';
+  const fetchFilesCondition = show && user && user.user_id && contentType === 'file';
+
+  const { articles, isLoading: loadingArticles, isError: errorArticles } = useArticle(
+    null, // articleId (not fetching a specific one)
+    fetchArticlesCondition ? user.user_id : null // teacherId
+  );
+
+  const { files, isLoading: loadingFiles, isError: errorFiles } = useFile(
+    null, // fileId (not fetching a specific one)
+    fetchFilesCondition ? user.user_id : null // uploaderId
+  );
 
   useEffect(() => {
     if (show) {
-      // Reset state when modal is shown
-      setSelectedItem('');
-      setError(null);
-      setSubmitting(false); // Reset submitting state when modal is opened
-      setContentType('article'); // Default to article
+        setSelectedItem('');
+        setCurrentError(null);
+        setSubmitting(false);
+        // Consider resetting contentType to 'article' here if it should always default on open
+        // For now, it retains selection unless modal is fully closed and reopened.
+    } else {
+         setContentType('article'); // Reset to default when closing/hidden
     }
   }, [show]);
 
   useEffect(() => {
-    if (show && user && user.user_id) {
-      const fetchItems = async () => {
-        setLoadingItems(true);
-        setError(null);
-        setItems([]); // Clear previous items before fetching new ones
-        try {
-          let fetchedItems = [];
-          if (contentType === 'article') {
-            fetchedItems = await getMyArticles(user.user_id);
-          } else {
-            fetchedItems = await getMyFiles(user.user_id);
-          }
-          setItems(fetchedItems || []); // Ensure items is always an array
-        } catch (err) {
-          console.error(`Error fetching ${contentType}s:`, err);
-          setError(`Failed to load your ${contentType}s. ${err.message}`);
-          setItems([]); // Clear items on error
-        }
-        setLoadingItems(false);
-      };
-      fetchItems();
-    } else if (show && (!user || !user.user_id)) {
-        setError("User information is not available. Cannot load items.");
-        setItems([]);
-        setLoadingItems(false);
+    if (!show) return;
+
+    if (!user || !user.user_id) {
+      setCurrentError("User information is not available. Cannot load items.");
+      return;
     }
-  }, [show, contentType, user]);
+    // Prioritize SWR hook errors
+    if (contentType === 'article' && errorArticles) {
+      setCurrentError(`Failed to load your articles: ${errorArticles.message || 'Unknown error'}`);
+    } else if (contentType === 'file' && errorFiles) {
+      setCurrentError(`Failed to load your files: ${errorFiles.message || 'Unknown error'}`);
+    } else {
+       // Clear error only if no SWR error is active for the current type
+      if (!((contentType === 'article' && errorArticles) || (contentType === 'file' && errorFiles))) {
+          setCurrentError(null);
+      }
+    }
+  }, [contentType, errorArticles, errorFiles, user, show]);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedItem) {
-      setError('Please select an item to add.');
+      setCurrentError('Please select an item to add.');
       return;
     }
     setSubmitting(true);
-    setError(null);
+    setCurrentError(null);
 
     const contentData = {
       course_id: courseId,
@@ -69,29 +75,21 @@ const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user
 
     try {
         await onAddContent(contentData);
-        // Parent (CourseContent) is responsible for closing modal on success via handleAddContent -> setShowAddModal(false)
-        // and also for resetting submitting state if needed, or this component can do it if it's still mounted.
-        // If onAddContent was successful, it should've hidden the modal.
-        // If modal is still shown, it means there was an issue handled by parent, or parent didn't hide.
-        // For robustness, ensure submitting is false if we're still here.
-        // However, onAddContent in CourseContent.js already calls setShowAddModal(false) and setLoading(false) which implies submitting should be handled there.
-        // Let's assume parent handles closing and thus unmounting/hiding this modal.
     } catch (apiError) {
-        // This catch block in modal might not be strictly necessary if onAddContent in parent handles its own errors.
-        // However, it can be a fallback.
         console.error('Error during onAddContent call from modal context:', apiError);
-        setError(`Failed to add content: ${apiError.message}`);
-        setSubmitting(false); // Explicitly stop submitting animation on error within the modal
+        setCurrentError(`Failed to add content: ${apiError.message}`);
+        setSubmitting(false);
     }
   };
 
   const handleActualClose = () => {
     if (!submitting) {
-        handleClose(); // Call the original handleClose from props
+        handleClose();
     }
-    // If submitting, the modal close is typically blocked or handled by the submission logic itself.
   };
 
+  const currentItems = contentType === 'article' ? articles : files;
+  const isLoadingCurrentItems = contentType === 'article' ? loadingArticles : loadingFiles;
 
   return (
     <Modal show={show} onHide={handleActualClose} backdrop={submitting ? 'static' : true} keyboard={!submitting}>
@@ -99,33 +97,49 @@ const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user
         <Modal.Title>Add New Content to Course</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
+        {currentError && <Alert variant="danger" onClose={() => setCurrentError(null)} dismissible>{currentError}</Alert>}
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3">
             <Form.Label>Content Type:</Form.Label>
             <div>
               <ToggleButtonGroup
                 type="radio"
-                name={`contentType-${courseId}`}
+                name={`contentType-modal-${courseId}`} // Ensure unique name for radio group
                 value={contentType}
-                onChange={(val) => { if(!submitting && !loadingItems) { setContentType(val); setSelectedItem(''); } }}
+                onChange={(val) => {
+                    if (!submitting && !(val === 'article' && loadingArticles) && !(val === 'file' && loadingFiles)) {
+                        setContentType(val);
+                        setSelectedItem('');
+                        setCurrentError(null); // Clear error on type change
+                    }
+                }}
                 className="mb-2"
               >
-                <ToggleButton id={`tbg-radio-article-${courseId}`} value={'article'} variant="outline-primary" disabled={submitting || loadingItems}>
+                <ToggleButton
+                  id={`tbg-modal-radio-article-${courseId}`}
+                  value={'article'}
+                  variant="outline-primary"
+                  disabled={submitting || loadingArticles}
+                >
                   Article
                 </ToggleButton>
-                <ToggleButton id={`tbg-radio-file-${courseId}`} value={'file'} variant="outline-primary" disabled={submitting || loadingItems}>
+                <ToggleButton
+                  id={`tbg-modal-radio-file-${courseId}`}
+                  value={'file'}
+                  variant="outline-primary"
+                  disabled={submitting || loadingFiles}
+                >
                   File
                 </ToggleButton>
               </ToggleButtonGroup>
             </div>
           </Form.Group>
 
-          {loadingItems ? (
+          {isLoadingCurrentItems ? (
             <div className="text-center my-3">
               <Spinner animation="border" size="sm" /> Loading your {contentType}s...
             </div>
-          ) : items.length > 0 ? (
+          ) : currentItems && currentItems.length > 0 ? (
             <Form.Group className="mb-3">
               <Form.Label>Select {contentType === 'article' ? 'Article' : 'File'}:</Form.Label>
               <Form.Select
@@ -136,25 +150,35 @@ const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user
                 required
               >
                 <option value="">-- Select an item --</option>
-                {items.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {contentType === 'article' ? item.title : item.name} (ID: {item.id})
-                  </option>
-                ))}
+                {currentItems.map((item) => {
+                    const id = item.article_id || item.file_id || item.id;
+                    const name = contentType === 'article' ? item.title : item.name;
+                    return (
+                        <option key={id} value={id}>
+                            {name} (ID: {id})
+                        </option>
+                    );
+                })}
               </Form.Select>
             </Form.Group>
           ) : (
-            <Alert variant="info">
-              You don't have any {contentType}s to add, or they could not be loaded.
-              {contentType === 'article' ? 'Try creating some articles first via the Articles page.' : 'Try uploading some files first (feature might be elsewhere).'}
-            </Alert>
+             !currentError && show && ( // Only show "no items" if not loading and no error
+                <Alert variant="info">
+                You don't have any {contentType}s to add, or they could not be loaded.
+                {contentType === 'article' ? 'Try creating some articles first via the Articles page.' : 'Try uploading some files first.'}
+                </Alert>
+             )
           )}
 
           <div className="d-flex justify-content-end mt-4">
             <Button variant="secondary" onClick={handleActualClose} disabled={submitting} className="me-2">
               Cancel
             </Button>
-            <Button variant="primary" type="submit" disabled={loadingItems || items.length === 0 || !selectedItem || submitting}>
+            <Button
+                variant="primary"
+                type="submit"
+                disabled={isLoadingCurrentItems || !currentItems || currentItems.length === 0 || !selectedItem || submitting}
+            >
               {submitting ? <><Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" /> Adding...</> : 'Add to Course'}
             </Button>
           </div>
