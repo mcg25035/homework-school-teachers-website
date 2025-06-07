@@ -746,33 +746,35 @@ export const addCourseContent = async (courseId, articleId, fileId) => {
 };
 
 // DELETE /api/course_content.php?id={content_id}
-export const deleteCourseContent = async (contentId) => {
-  console.log(`API CALL (Real): deleteCourseContent for contentId: ${contentId}`);
+export const deleteCourseContent = async (courseId, articleId, fileId) => {
+  console.log(`API CALL (Real): deleteCourseContent for courseId: ${courseId}, articleId: ${articleId}, fileId: ${fileId}`);
   const token = localStorage.getItem('token');
 
   const headers = {
-    'Content-Type': 'application/json', // Though DELETE might not strictly need a content-type for body, it's good practice for consistency or if API expects it for error responses.
+    'Content-Type': 'application/json',
   };
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  if (!contentId) {
-    console.error('deleteCourseContent: contentId must be provided.');
-    return { success: false, message: 'Bad Request: Content ID is required from client-side check.' };
+  let queryString = `course_id=${courseId}`;
+  if (articleId) {
+    queryString += `&article_id=${articleId}`;
+  } else if (fileId) {
+    queryString += `&file_id=${fileId}`;
+  } else {
+    console.error('deleteCourseContent: Either articleId or fileId must be provided.');
+    return { success: false, message: 'Bad Request: Either article_id or file_id is required for deletion.' };
   }
 
   try {
-    const response = await fetch(`${API_ENDPOINT}/course_content.php?id=${contentId}`, {
+    const response = await fetch(`${API_ENDPOINT}/course_content.php?${queryString}`, {
       method: 'DELETE',
       headers: headers,
     });
 
     const result = await response.json();
-    // Similar to addCourseContent, return the parsed result directly.
-    // The component (CourseContent.js) expects an object with 'success' and 'message'.
-    // API docs specify success (200 OK) or error (400, 401, 403, 404, 500) responses.
     return result;
 
   } catch (error) {

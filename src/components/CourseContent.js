@@ -30,7 +30,8 @@ const CourseContent = ({ course_id, user, setActiveComponent }) => {
         // Assuming API returns objects with 'name' and 'type' or we derive them
         const processedContent = fetchedContent.map(item => ({
             ...item,
-            // Ensure 'name' and 'type' are present, deriving if necessary
+            // Ensure 'id', 'name' and 'type' are present, deriving if necessary
+            id: item.id || item.article_id || item.file_id, // Use existing id, or article_id, or file_id
             name: item.name || (item.article_id ? `Article ID: ${item.article_id}` : `File ID: ${item.file_id}`),
             type: item.type || (item.article_id ? 'article' : 'file')
         }));
@@ -110,14 +111,14 @@ const CourseContent = ({ course_id, user, setActiveComponent }) => {
     }
   };
 
-  const handleDeleteContent = async (contentId) => {
+  const handleDeleteContent = async (itemToDelete) => {
     if (!window.confirm("Are you sure you want to delete this content?")) {
         return;
     }
     setLoading(true); // Show loading state for delete operation
-    console.log(`Attempting to delete content with id: ${contentId}`);
+    console.log(`Attempting to delete content:`, itemToDelete);
     try {
-        const response = await deleteCourseContent(contentId);
+        const response = await deleteCourseContent(course_id, itemToDelete.article_id, itemToDelete.file_id);
         if (response.success) {
             alert(response.message || 'Content deleted successfully!');
             await refreshContent(); // Refresh content from server
@@ -191,14 +192,12 @@ const CourseContent = ({ course_id, user, setActiveComponent }) => {
                   <Card.Text>
                     Added: {new Date(item.create_time).toLocaleString()}
                   </Card.Text>
-                  {/*
-                  <Button variant="link" onClick={() => setActiveComponent(item.article_id ? 'ArticleView' : 'FileView', { id: item.article_id || item.file_id, courseName: courseName })}>
+                  <Button variant="link" onClick={() => setActiveComponent(item.article_id ? 'ArticleView' : 'FileView', { articleId: item.article_id || item.file_id, courseName: courseName })}>
                     View Content
                   </Button>
-                  */}
                 </Card.Body>
                 <Card.Footer>
-                  <Button variant="outline-danger" size="sm" onClick={() => handleDeleteContent(item.id)} disabled={loading}>
+                  <Button variant="outline-danger" size="sm" onClick={() => handleDeleteContent(item)} disabled={loading}>
                     Delete
                   </Button>
                 </Card.Footer>
