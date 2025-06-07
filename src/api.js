@@ -495,15 +495,6 @@ export function useUsers(params = {}) {
   };
 }
 
-/**
- * Fetches a single user by their ID.
- * @param {number} userId - The ID of the user to fetch.
- * @returns {{users: User | null, isLoading: boolean, isError: Error}}
- */
-export function getUserById(userId) {
-  return useUsers({ user_id: userId });
-}
-
 // Calendar API
 
 /**
