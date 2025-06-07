@@ -110,17 +110,22 @@ export async function logout() {
 
 // Article API
 export function useArticle(articleId, teacherId) {
-  let url = `${API_ENDPOINT}/article.php`;
+  // Determine the SWR key. If no specific IDs are provided for fetching,
+  // and we intend to fetch only when an ID is present (e.g., teacherId for user's articles),
+  // then the key should be null to prevent fetching all articles.
+  let swrKey = null;
   if (articleId) {
-    url += `?article_id=${articleId}`;
+    swrKey = `${API_ENDPOINT}/article.php?article_id=${articleId}`;
   } else if (teacherId) {
-    url += `?teacher_id=${teacherId}`;
+    // Only fetch if teacherId is explicitly provided for fetching user's articles
+    swrKey = `${API_ENDPOINT}/article.php?teacher_id=${teacherId}`;
   } else {
-    // Fetch all articles if no specific ID is provided
-    url = `${API_ENDPOINT}/article.php`;
+    // If neither articleId nor teacherId is provided, do not fetch.
+    // To fetch all articles, a separate function or explicit parameter could be used.
+    swrKey = null;
   }
 
-  const { data, error } = useSWR(url, fetcher);
+  const { data, error } = useSWR(swrKey, fetcher);
 
   return {
     article: data ? data.data : null,
@@ -306,16 +311,19 @@ export async function deleteEnrollment(courseId, userId) {
 
 // File API
 export function useFile(fileId, uploaderId) {
-  let url = `${API_ENDPOINT}/file.php`;
+  let swrKey = null;
   if (fileId) {
-    url += `?file_id=${fileId}`;
+    swrKey = `${API_ENDPOINT}/file.php?file_id=${fileId}`;
   } else if (uploaderId) {
-    url += `?uploader_id=${uploaderId}`;
+    // Only fetch if uploaderId is explicitly provided
+    swrKey = `${API_ENDPOINT}/file.php?uploader_id=${uploaderId}`;
   } else {
-     url = `${API_ENDPOINT}/file.php`;
+    // If neither fileId nor uploaderId is provided, do not fetch.
+    // To fetch all files, a separate function or explicit parameter could be used.
+    swrKey = null;
   }
 
-  const { data, error } = useSWR(url, fetcher);
+  const { data, error } = useSWR(swrKey, fetcher);
 
   return {
     file: data ? data.data : null,
