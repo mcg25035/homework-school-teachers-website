@@ -14,17 +14,37 @@ function Header({ functionList, setActiveComponent, isLoggedIn, user, logout }) 
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="me-auto">
-            {functionList.map((item) => (
-              <Nav.Link key={item.component} onClick={() => setActiveComponent(item.component)}>
-                {item.display}
-              </Nav.Link>
-            ))}
-            {/* Add My Courses link here if user is logged in */}
-            {isLoggedIn && (
-              <Nav.Link onClick={() => setActiveComponent('MyCourses')}>
-                My Courses
-              </Nav.Link>
-            )}
+            {functionList.map((item) => {
+              if (!isLoggedIn) {
+                // If item is public (no roles defined, and some flag indicates public visibility, e.g. item.public)
+                // This part is not specified, so assuming functionList is for logged-in users primarily for now.
+                // To show public links, functionList items would need a property like item.public = true
+                // and then: if(item.public) { /* render */ } else { return null; }
+                return null;
+              }
+
+              // User is logged in, proceed with role checks or general display
+              if (item.roles && item.roles.length > 0) {
+                // This item has role restrictions.
+                // The check relies on user.role being correctly populated.
+                // If user.role is undefined or null, this link will not be rendered for safety.
+                if (user && user.role && item.roles.includes(user.role)) {
+                  return (
+                    <Nav.Link key={item.component} onClick={() => setActiveComponent(item.component)}>
+                      {item.display}
+                    </Nav.Link>
+                  );
+                }
+                return null; // Role requirement not met or user.role not available
+              } else {
+                // No role restriction, visible to all logged-in users
+                return (
+                  <Nav.Link key={item.component} onClick={() => setActiveComponent(item.component)}>
+                    {item.display}
+                  </Nav.Link>
+                );
+              }
+            })}
           </Nav>
           <Nav>
             {isLoggedIn ? (
