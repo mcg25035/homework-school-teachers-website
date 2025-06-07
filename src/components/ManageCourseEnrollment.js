@@ -140,7 +140,7 @@ function ManageCourseEnrollment({ course_id, setActiveComponent }) {
           <div style={{ minWidth: '120px' }}></div> {/* Spacer for centering title if needed */}
         </Card.Header>
         <Card.Body>
-          <h4 className="mb-3 text-center">Course: {course.title || 'Unknown Course'}</h4>
+          <h4 className="mb-3 text-center">Course: {course.course_name || 'Unknown Course'}</h4>
 
           {notification && (
             <Alert variant={notification.type} onClose={() => setNotification(null)} dismissible className="mt-3">
