@@ -452,6 +452,14 @@ export async function updateTeacherPage(userId, content, variables) {
  * @returns {{users: User[] | User | null, isLoading: boolean, isError: Error}}
  */
 export function useUsers(params = {}) {
+  // Handle null or undefined params immediately
+  if (params === null || typeof params === 'undefined') {
+    // If params.user_id was expected, users should be null. Otherwise, an empty array.
+    // However, without params, we don't know if user_id was "expected".
+    // Defaulting to empty array for users and false for isLoading seems safest.
+    return { users: [], isLoading: false, isError: null };
+  }
+
   const query = new URLSearchParams(params);
   const queryString = query.toString();
   const url = `${API_ENDPOINT}/user.php${queryString ? '?' + queryString : ''}`;
