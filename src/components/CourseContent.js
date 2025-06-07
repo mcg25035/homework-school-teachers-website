@@ -22,7 +22,11 @@ const CourseContent = ({ course_id, user, setActiveComponent }) => {
       setError(null);
       try {
         console.log(`Fetching content for course_id: ${course_id}`);
+        // Log the user object to ensure it's passed correctly
+        console.log('CourseContent - User object:', user);
         const fetchedContent = await getCourseContent(course_id);
+        console.log('CourseContent - Raw fetchedContent:', JSON.stringify(fetchedContent, null, 2)); // Log raw fetched content
+
         // Assuming API returns objects with 'name' and 'type' or we derive them
         const processedContent = fetchedContent.map(item => ({
             ...item,
@@ -30,6 +34,7 @@ const CourseContent = ({ course_id, user, setActiveComponent }) => {
             name: item.name || (item.article_id ? `Article ID: ${item.article_id}` : `File ID: ${item.file_id}`),
             type: item.type || (item.article_id ? 'article' : 'file')
         }));
+        console.log('CourseContent - Processed content:', JSON.stringify(processedContent, null, 2)); // Log processed content
         setContent(processedContent);
 
         // Placeholder for fetching course name - ideally from a course details API endpoint
