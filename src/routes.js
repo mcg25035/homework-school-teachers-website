@@ -20,6 +20,7 @@ import TeacherCalendar from './components/TeacherCalendar';
 import TeacherPersonalPageEditor from './components/TeacherPersonalPageEditor';
 import TeacherPublicPageView from './components/TeacherPublicPageView';
 import DevTeacherPagePortal from './components/DevTeacherPagePortal'; // Import new component
+import ManageCourseEnrollment from './components/ManageCourseEnrollment'; // Import ManageCourseEnrollment
 
 const components = {
   Component1: Component1,
@@ -40,6 +41,7 @@ const components = {
   TeacherPersonalPageEditor: TeacherPersonalPageEditor,
   TeacherPublicPageView: TeacherPublicPageView,
   DevTeacherPagePortal: DevTeacherPagePortal,   // Add new component to the map
+  ManageCourseEnrollment: ManageCourseEnrollment, // Add ManageCourseEnrollment to the map
 };
 
 // Modified renderComponent to accept and pass props

@@ -4,7 +4,8 @@ import { Table, Modal, Button, Form } from 'react-bootstrap'; // Add Modal, Butt
 import CreateCourse from './CreateCourse'; // Keep CreateCourse import
 import EditCourse from './EditCourse'; // Import EditCourse
 
-function CourseList() {
+// Modified to accept setActiveComponent prop
+function CourseList({ setActiveComponent }) {
   const [showModal, setShowModal] = useState(false);
   const [editingCourseId, setEditingCourseId] = useState(null); // State for the course being edited
   const [showEditModal, setShowEditModal] = useState(false); // State for the edit modal visibility
@@ -50,15 +51,33 @@ function CourseList() {
               <th>課程代號</th>
               <th>課程時間</th>
               <th>老師</th>
+              <th>操作</th> {/* Added Actions column */}
             </tr>
           </thead>
           <tbody>
             {courses.map(course => (
-              <tr key={course.course_id} onClick={() => handleEditClick(course.course_id)} style={{ cursor: 'pointer' }}> {/* Add onClick and cursor style */}
-                <td>{course.course_name}</td>
-                <td>{course.course_code}</td>
-                <td>{course.time}</td>
-                <td>{course.teacher_id}</td> {/* Display teacher ID for now */}
+              // Row click still opens Edit modal, but button click will be specific
+              <tr key={course.course_id} >
+                <td onClick={() => handleEditClick(course.course_id)} style={{ cursor: 'pointer' }}>{course.course_name}</td>
+                <td onClick={() => handleEditClick(course.course_id)} style={{ cursor: 'pointer' }}>{course.course_code}</td>
+                <td onClick={() => handleEditClick(course.course_id)} style={{ cursor: 'pointer' }}>{course.time}</td>
+                <td onClick={() => handleEditClick(course.course_id)} style={{ cursor: 'pointer' }}>{course.teacher_id}</td> {/* Display teacher ID for now */}
+                <td>
+                  <Button
+                    variant="info"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent row's onClick from firing
+                      if (setActiveComponent) {
+                        setActiveComponent('ManageCourseEnrollment', { course_id: course.course_id });
+                      } else {
+                        console.error("setActiveComponent is not defined in CourseList props");
+                      }
+                    }}
+                  >
+                    管理學生
+                  </Button>
+                </td>
               </tr>
             ))}
           </tbody>

@@ -284,13 +284,15 @@ export function useEnrollment(courseId, userId) {
      url = `${API_ENDPOINT}/enrollment.php`;
   }
 
-  const { data, error } = useSWR(url, fetcher);
+  // Destructure mutate and rename it to revalidateEnrollments for clarity
+  const { data, error, mutate: revalidateEnrollments } = useSWR(url, fetcher);
 
   return {
-    enrollment: data ? data.data : null,
-    enrollments: data ? (Array.isArray(data.data) ? data.data : []) : [],
+    enrollment: data ? data.data : null, // If fetching a specific enrollment
+    enrollments: data ? (Array.isArray(data.data) ? data.data : (data.data ? [data.data] : [])) : [], // For lists
     isLoading: !error && !data,
-    isError: error
+    isError: error,
+    revalidateEnrollments, // Expose mutate for manual revalidation
   };
 }
 
@@ -440,6 +442,67 @@ export async function updateTeacherPage(userId, content, variables) {
 }
 
 // (Make sure this is placed before the last export default or at a similar appropriate location with other API groups)
+
+// User API
+/**
+ * Fetches users based on provided parameters.
+ * @param {Object} [params] - Optional parameters for filtering users.
+ * @param {number} [params.user_id] - User ID to fetch a specific user.
+ * @param {string} [params.username] - Username to search for.
+ * @returns {{users: User[] | User | null, isLoading: boolean, isError: Error}}
+ */
+export function useUsers(params = {}) {
+  const query = new URLSearchParams(params);
+  const queryString = query.toString();
+  const url = `${API_ENDPOINT}/user.php${queryString ? '?' + queryString : ''}`;
+
+  const { data, error } = useSWR(url, fetcher);
+
+  // Ensure data.data is an array if it's not, for consistency,
+  // especially when fetching a single user by ID.
+  let usersData = null;
+  if (data && data.success) {
+    if (Array.isArray(data.data)) {
+      usersData = data.data;
+    } else if (data.data) {
+      // If a single user is fetched, API might return an object directly
+      usersData = [data.data];
+    } else {
+      usersData = []; // API returned success:true but data.data is null or undefined
+    }
+  } else if (data && !data.success && params.user_id && !params.username) {
+    // If fetching a single user by ID and it's not found, API might return {success: false, message: "..."}
+    // In this specific case, we want to return null for a single user lookup that fails.
+    // For searches (e.g. by username), an empty array is more appropriate for "no results".
+    usersData = null;
+  } else {
+    usersData = []; // Default to empty array for other cases (error, no data, or search returning no results)
+  }
+
+  // If a specific user_id was passed and we expect a single user object
+  if (params.user_id && usersData && usersData.length === 1) {
+    usersData = usersData[0];
+  } else if (params.user_id && usersData && usersData.length === 0) {
+    // If user_id was provided but no user was found (e.g. API returns empty array or handled as such)
+    usersData = null;
+  }
+
+
+  return {
+    users: usersData, // This can be an array of users, a single user object, or null
+    isLoading: !error && !data,
+    isError: error,
+  };
+}
+
+/**
+ * Fetches a single user by their ID.
+ * @param {number} userId - The ID of the user to fetch.
+ * @returns {{users: User | null, isLoading: boolean, isError: Error}}
+ */
+export function getUserById(userId) {
+  return useUsers({ user_id: userId });
+}
 
 // Calendar API
 
