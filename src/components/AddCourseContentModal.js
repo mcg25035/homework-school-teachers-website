@@ -3,9 +3,10 @@ import { Modal, Button, Form, Spinner, Alert, ToggleButtonGroup, ToggleButton } 
 import { useArticle, useFile } from '../api';
 
 const AddCourseContentModal = ({ show, handleClose, courseId, onAddContent, user }) => {
+  console.log('AddCourseContentModal - Initial Props:', { show, courseId, user });
   const [contentType, setContentType] = useState('article'); // 'article' or 'file'
   const [selectedItem, setSelectedItem] = useState('');
-  const [currentError, setCurrentError] = useState(null);
+  const [currentError, setCurrentError] = useState(null); // Renamed from error to avoid conflict
   const [submitting, setSubmitting] = useState(false);
 
   // SWR Hooks
