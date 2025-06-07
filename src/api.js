@@ -632,3 +632,135 @@ export function useStudentCourses(userId) {
     isError: error
   };
 }
+
+// Course Content API functions
+
+// GET /api/course_content.php?course_id={course_id}
+export const getCourseContent = async (courseId) => {
+  console.log(`API CALL (Mock): getCourseContent for courseId: ${courseId}`);
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  // Retrieve token from localStorage
+  const token = localStorage.getItem('token');
+  if (!token) {
+    console.error("Mock API: No token found. User might not be logged in.");
+    // Simulate an unauthorized error, though the actual API handles this
+    // throw new Error("Unauthorized: Please log in.");
+    // For mock, let's return empty or specific error structure if needed by UI
+    // Corrected: Throw an error or return a promise that rejects
+    return Promise.reject(new Error("Unauthorized: Please log in."));
+  }
+
+  // Simulate checking permissions based on courseId (very basic mock)
+  if (courseId === "private_course_unauthorized") { // Example of a course user can't access
+    return Promise.reject(new Error("Forbidden: You are not authorized to view this course content."));
+  }
+
+  const mockApiResponse = {
+    success: true,
+    message: "Course content retrieved successfully.",
+    data: [
+      { id: 1, article_id: 101, file_id: null, create_time: "2023-10-26 10:00:00", course_id: parseInt(courseId), name: "Introduction Article", type: "article" },
+      { id: 2, article_id: null, file_id: 202, create_time: "2023-10-26 10:05:00", course_id: parseInt(courseId), name: "Syllabus.pdf", type: "file" },
+      { id: 3, article_id: 103, file_id: null, create_time: "2023-10-26 10:10:00", course_id: parseInt(courseId), name: "Chapter 1 Notes", type: "article" },
+    ].filter(item => item.course_id === parseInt(courseId)) // Ensure data matches courseId for mock
+  };
+
+  // Adjusted to directly return data array on success, or reject promise on error.
+  if (mockApiResponse.success) {
+      return mockApiResponse.data;
+  } else {
+      // This part might not be reached if prior checks reject the promise.
+      const error = new Error(mockApiResponse.message || 'Failed to fetch course content.');
+      return Promise.reject(error);
+  }
+};
+
+// POST /api/course_content.php
+export const addCourseContent = async (courseId, articleId, fileId) => {
+  console.log(`API CALL (Mock): addCourseContent for courseId: ${courseId}`, { articleId, fileId });
+  await new Promise(resolve => setTimeout(resolve, 500));
+  const token = localStorage.getItem('token');
+
+  if (!token) {
+    return {
+        success: false,
+        message: "Unauthorized: Please log in."
+    };
+  }
+
+  if (!courseId || (!articleId && !fileId)) {
+    return {
+        success: false,
+        message: "Bad Request: Course ID and either article_id or file_id is required."
+    };
+  }
+
+  const mockApiResponse = {
+    success: true,
+    message: "Course content added successfully.",
+    data: {
+      id: Math.floor(Math.random() * 1000) + 100
+    }
+  };
+  console.log("Mock API: Content added, response:", mockApiResponse);
+  return mockApiResponse;
+};
+
+// DELETE /api/course_content.php?id={content_id}
+export const deleteCourseContent = async (contentId) => {
+  console.log(`API CALL (Mock): deleteCourseContent for contentId: ${contentId}`);
+  await new Promise(resolve => setTimeout(resolve, 500));
+  const token = localStorage.getItem('token');
+
+  if (!token) {
+    return {
+        success: false,
+        message: "Unauthorized: Please log in."
+    };
+  }
+
+  if (!contentId) {
+    return {
+        success: false,
+        message: "Bad Request: Content ID is required."
+    };
+  }
+
+  const mockApiResponse = {
+    success: true,
+    message: "Course content deleted successfully."
+  };
+  console.log("Mock API: Content deleted, response:", mockApiResponse);
+  return mockApiResponse;
+};
+
+export const getMyArticles = async (userId) => {
+  console.log(`API CALL (Mock): getMyArticles for userId: ${userId}`);
+  await new Promise(resolve => setTimeout(resolve, 500));
+  const token = localStorage.getItem('token');
+  if (!token && userId) {
+      console.warn("Mock API (getMyArticles): No token, returning empty for user-specific articles.");
+      return [];
+  }
+  return [
+    { id: 101, title: "My First Article" },
+    { id: 103, title: "Another Article I Wrote" },
+    { id: 105, title: "React Best Practices" },
+  ];
+};
+
+export const getMyFiles = async (userId) => {
+  console.log(`API CALL (Mock): getMyFiles for userId: ${userId}`);
+  await new Promise(resolve => setTimeout(resolve, 500));
+  const token = localStorage.getItem('token');
+  if (!token && userId) {
+      console.warn("Mock API (getMyFiles): No token, returning empty for user-specific files.");
+      return [];
+  }
+  return [
+    { id: 202, name: "Lecture Slides Week 1.pdf" },
+    { id: 205, name: "Project Requirements.docx" },
+    { id: 208, name: "Dataset.csv" },
+  ];
+};

@@ -56,13 +56,53 @@ function CourseList({ setActiveComponent }) {
           </thead>
           <tbody>
             {courses.map(course => (
-              // Row click still opens Edit modal, but button click will be specific
               <tr key={course.course_id} >
-                <td onClick={() => handleEditClick(course.course_id)} style={{ cursor: 'pointer' }}>{course.course_name}</td>
-                <td onClick={() => handleEditClick(course.course_id)} style={{ cursor: 'pointer' }}>{course.course_code}</td>
-                <td onClick={() => handleEditClick(course.course_id)} style={{ cursor: 'pointer' }}>{course.time}</td>
-                <td onClick={() => handleEditClick(course.course_id)} style={{ cursor: 'pointer' }}>{course.teacher_id}</td> {/* Display teacher ID for now */}
+                <td
+                  onClick={() => {
+                    if (setActiveComponent) {
+                      setActiveComponent('CourseContent', { course_id: course.course_id });
+                    } else {
+                      console.error("setActiveComponent is not defined in CourseList props");
+                    }
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {course.course_name}
+                </td>
+                <td
+                  onClick={() => {
+                    if (setActiveComponent) {
+                      setActiveComponent('CourseContent', { course_id: course.course_id });
+                    } else {
+                      console.error("setActiveComponent is not defined in CourseList props");
+                    }
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {course.course_code}
+                </td>
+                <td
+                  onClick={() => {
+                    if (setActiveComponent) {
+                      setActiveComponent('CourseContent', { course_id: course.course_id });
+                    } else {
+                      console.error("setActiveComponent is not defined in CourseList props");
+                    }
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {course.time}
+                </td>
+                <td>{course.teacher_id}</td> {/* Display teacher ID, not clickable for CourseContent */}
                 <td>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="me-2"
+                    onClick={() => handleEditClick(course.course_id)} // This calls the existing edit modal
+                  >
+                    Edit Course
+                  </Button>
                   <Button
                     variant="info"
                     size="sm"
