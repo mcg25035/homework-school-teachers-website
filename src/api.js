@@ -627,7 +627,6 @@ export function useStudentCourses(userId) {
   return {
     courses: processedCourses,
     isLoading: userId ? (!error && !apiResponse) : false, // Only loading if userId was provided
-    isLoading: !error && !data,
     isError: error
   };
 }
