@@ -39,16 +39,32 @@ function ManageCourseEnrollment({ course_id, setActiveComponent }) {
 
   // Filter search results to exclude already enrolled students
   useEffect(() => {
-    if (searchedUsers && Array.isArray(searchedUsers) && enrollments && Array.isArray(enrollments)) {
-      const enrolledStudentIds = enrollments.map(enrollment => enrollment.student_id); // Changed to student_id
-      const filteredResults = searchedUsers.filter(user => !enrolledStudentIds.includes(user.user_id)); // user.user_id from search is correct
-      setSearchResults(filteredResults);
-    } else if (searchedUsers && Array.isArray(searchedUsers)) {
-      setSearchResults(searchedUsers); // No enrollments yet, show all search results
-    } else {
-      setSearchResults([]); // No search results or error
-    }
-  }, [searchedUsers, enrollments]);
+    setSearchResults(prevResults => {
+      let newFilteredResults = [];
+
+      if (searchedUsers && Array.isArray(searchedUsers)) {
+        if (enrollments && Array.isArray(enrollments) && enrollments.length > 0) {
+          const enrolledStudentIds = enrollments.map(enrollment => enrollment.student_id);
+          newFilteredResults = searchedUsers.filter(user => !enrolledStudentIds.includes(user.user_id));
+        } else {
+          // No enrollments or empty enrollments array, so all searchedUsers are potential results
+          newFilteredResults = searchedUsers;
+        }
+      }
+      // If searchedUsers is null/undefined, newFilteredResults remains []
+
+      // Check if the new results are different from the previous results
+      // This comparison logic assumes user objects have a stable user_id property.
+      if (prevResults.length === newFilteredResults.length) {
+        const prevIdsString = prevResults.map(u => u.user_id).sort().join(',');
+        const newIdsString = newFilteredResults.map(u => u.user_id).sort().join(',');
+        if (prevIdsString === newIdsString) {
+          return prevResults; // Return old state if IDs are the same, preventing re-render
+        }
+      }
+      return newFilteredResults; // Return new state
+    });
+  }, [searchedUsers, enrollments]); // Dependency array is correct
 
   const handleAddStudent = async (userIdToAdd) => {
     setSuccessMessage('');
