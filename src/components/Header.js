@@ -28,7 +28,15 @@ function Header({ functionList, setActiveComponent, isLoggedIn, user, logout, us
   return (
     <Navbar bg="dark" variant="dark" expand="lg" fixed="top">
       <Container>
-        <Navbar.Brand href="#">南極冰山大系網</Navbar.Brand>
+        <Navbar.Brand href="#">
+          <img
+            src="logo.png"
+            alt="Logo"
+            height="30"
+            className="d-inline-block align-top"
+          />
+          南極冰山大系網
+        </Navbar.Brand>
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="me-auto">
@@ -46,9 +54,13 @@ function Header({ functionList, setActiveComponent, isLoggedIn, user, logout, us
                 className="rounded-circle"
                 style={{ width: '1.875em', height: '1.875em' }}
               />} id="basic-nav-dropdown">
-                <NavDropdown.Item onClick={() => setActiveComponent('Profile')}>Profile</NavDropdown.Item>
-                <NavDropdown.Item onClick={() => setActiveComponent('Settings')}>Settings</NavDropdown.Item>
-                <NavDropdown.Divider />
+                {userRole == 'teacher' && (
+                  <>
+                    <NavDropdown.Item onClick={() => setActiveComponent('Profile')}>Profile</NavDropdown.Item>
+                    <NavDropdown.Item onClick={() => setActiveComponent('Settings')}>Settings</NavDropdown.Item>
+                    <NavDropdown.Divider />
+                  </>
+                )}
                 <NavDropdown.Item onClick={handleLogout}>Logout</NavDropdown.Item>
               </NavDropdown>
             ) : (

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import MdEditor from 'react-markdown-editor-lite';
 import ReactMarkdown from 'react-markdown';
 import 'react-markdown-editor-lite/lib/index.css';
-import { Container, Card, Button, Collapse, Alert, Form, Spinner, Row, Col, InputGroup } from 'react-bootstrap'; // Added InputGroup
+import { Container, Card, Button, Collapse, Alert, Form, Spinner, Row, Col, InputGroup } from 'react-bootstrap';
 import { useLoginStatus, useTeacherPage, updateTeacherPage } from '../api';
 
 const markdownCheatsheet = `
@@ -41,16 +41,16 @@ const PREDEFINED_VARIABLES = ['office_hours', 'research_interests', 'contact_ema
 
 function TeacherPersonalPageEditor() {
   const { user, isLoading: isLoadingUser, isError: isErrorUser } = useLoginStatus();
-  
-  const { 
-    data: teacherPageData, 
-    isLoading: isLoadingPageDataOriginal, 
+
+  const {
+    data: teacherPageData,
+    isLoading: isLoadingPageDataOriginal,
     isError: isErrorPageData,
     // mutate: revalidateTeacherPage // Exposed by useTeacherPage, can be used for manual revalidation
   } = useTeacherPage(user ? user.user_id : null, {
-    shouldRetryOnError: false, 
+    shouldRetryOnError: false,
   });
-  
+
   const isLoadingInitialData = isLoadingUser || (user && isLoadingPageDataOriginal);
 
   const [markdownContent, setMarkdownContent] = useState('');
@@ -60,9 +60,12 @@ function TeacherPersonalPageEditor() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState('');
   const [saveErrorMessage, setSaveErrorMessage] = useState('');
-  
+
   const [newCustomKeyName, setNewCustomKeyName] = useState('');
-  // console.log('[Render] Initial or current newCustomKeyName state:', newCustomKeyName); 
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiResult, setAiResult] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  // console.log('[Render] Initial or current newCustomKeyName state:', newCustomKeyName);
 
   const [hasInitializedForCurrentUser, setHasInitializedForCurrentUser] = useState(false);
 
@@ -231,6 +234,65 @@ function TeacherPersonalPageEditor() {
     return <Container className="mt-3"><Alert variant="danger">Error loading page data: {isErrorPageData.message}. You can try creating content and saving, or refresh.</Alert></Container>;
   }
   
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    setAiResult(null); // Clear previous results
+    try {
+      const response = await fetch('/api/ai_generate.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: aiPrompt }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`);
+      }
+
+      const data = await response.json();
+      setAiResult(data);
+      const aiGeneratedContent = data.mdContent;
+      setMarkdownContent(aiGeneratedContent);
+
+      // 掃描變數
+      const variableRegex = /%([a-zA-Z0-9_]+)%/g;
+      let match;
+      const newVariables = new Set();
+      while ((match = variableRegex.exec(aiGeneratedContent)) !== null) {
+        const variableName = match[1];
+        console.log("掃描到的變數名:", variableName);
+        newVariables.add(variableName);
+      }
+
+      console.log("掃描到的所有變數:", newVariables);
+
+      // 將新變數加入到 pageVariables 中
+      setPageVariables(prev => {
+        console.log("目前的 pageVariables:", prev);
+        const newState = { ...prev };
+        newVariables.forEach(variable => {
+          console.log("正在處理變數:", variable);
+          if (!newState.hasOwnProperty(variable)) {
+            console.log("變數不存在，加入到 newState 中");
+            newState[variable] = '';
+          } else {
+            console.log("變數已存在，跳過");
+          }
+        });
+        console.log("新的 pageVariables:", newState);
+        return newState;
+      });
+
+    } catch (error) {
+      console.error("Error fetching AI generated content:", error);
+      setSaveErrorMessage(`Error fetching AI generated content: ${error.message}`);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const customVariablesToDisplay = Object.entries(pageVariables).filter(
     ([key]) => !PREDEFINED_VARIABLES.includes(key)
   );
@@ -262,7 +324,21 @@ function TeacherPersonalPageEditor() {
             value={markdownContent}
             style={{ height: '400px' }}
             onChange={handleEditorChange}
-            renderHTML={text => <ReactMarkdown>{text}</ReactMarkdown>}
+            renderHTML={text => {
+              const replaceVariables = (content, variables) => {
+                if (!variables) return content;
+                let replacedContent = content;
+                for (const key in variables) {
+                  if (variables.hasOwnProperty(key)) {
+                    const variableRegex = new RegExp(`%${key}%`, 'g');
+                    replacedContent = replacedContent.replace(variableRegex, variables[key] || '');
+                  }
+                }
+                return replacedContent;
+              };
+              const processedText = replaceVariables(text, pageVariables);
+              return <ReactMarkdown>{processedText}</ReactMarkdown>;
+            }}
             config={{ view: { menu: true, md: true, html: true }, canView: { menu: true, md: true, html: true, fullScreen: true, hideMenu: true }}}
           />
           
@@ -338,6 +414,28 @@ function TeacherPersonalPageEditor() {
                 <Button variant="outline-success" onClick={handleAddVariable} size="sm">Add Custom Variable</Button>
             </Col>
           </Row>
+
+          <h6 className="mt-4">AI Tools</h6>
+          <Row className="mt-3 mb-3 align-items-center">
+            <Col xs={12} sm={8} className="mb-2 mb-sm-0">
+              <Form.Control
+                type="text"
+                placeholder="Enter your prompt for AI tools"
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+              />
+            </Col>
+            <Col xs={12} sm={4}>
+              <Button variant="outline-primary" onClick={handleGenerate}>Generate</Button>
+            </Col>
+          </Row>
+
+          {aiResult && (
+            <div className="mt-3">
+              <h5>AI Generated Content</h5>
+              <ReactMarkdown>{aiResult.mdContent}</ReactMarkdown>
+            </div>
+          )}
 
           <div className="mt-4 text-end">
             <Button variant="primary" onClick={handleSave} disabled={isSaving || isLoadingInitialData}>

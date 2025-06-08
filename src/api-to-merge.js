@@ -1,19 +1,7 @@
 import useSWR, { mutate } from 'swr';
 
-const fetcher = async (url) => {
-  const userRole = localStorage.getItem('userRole');
-  const headers = {};
-  if (userRole) {
-    headers['X-User-Role'] = userRole;
-  }
-  const response = await fetch(url, { headers });
-  if (!response.ok) {
-    const error = new Error('An error occurred while fetching the data.');
-    error.info = await response.json();
-    error.status = response.status;
-    throw error;
-  }
-  return response.json();
+const fetcher = (...args) => {
+  return fetch(...args).then(res => res.json());
 };
 
 // Conditionally set API_ENDPOINT based on environment
@@ -25,19 +13,10 @@ const API_ENDPOINT = process.env.NODE_ENV === 'development'
 // Added optional revalidateKey parameter
 async function performMutation(url, method, data, revalidateKey = null) {
   try {
-    const token = localStorage.getItem('token'); // Get token from localStorage
-    const userRole = localStorage.getItem('userRole');
     const options = {
       method: method,
       headers: {},
     };
-
-    if (token) {
-      options.headers['Authorization'] = `Bearer ${token}`;
-    }
-    if (userRole) {
-      options.headers['X-User-Role'] = userRole;
-    }
 
     if (data) {
       if (data instanceof FormData) {
@@ -93,57 +72,17 @@ async function performMutation(url, method, data, revalidateKey = null) {
   }
 }
 
-export const uploadFile = async (file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    const token = localStorage.getItem('token'); // Get token from localStorage
-    const userRole = localStorage.getItem('userRole');
-
-    const headers = {};
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
-    if (userRole) {
-        headers['X-User-Role'] = userRole;
-    }
-
-    try {
-        const response = await fetch(`${API_ENDPOINT}/upload.php`, {
-            method: 'POST',
-            headers: headers, // Pass headers here
-            body: formData,
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            throw new Error(result.message || `Error ${response.status}: File upload failed`);
-        }
-
-        if (result.success) {
-            return { success: true, data: result.data, message: result.message };
-        } else {
-            throw new Error(result.message || 'API returned success: false but no error message.');
-        }
-    } catch (error) {
-        console.error('Error in uploadFile:', error.message);
-        return { success: false, error: error.message };
-    }
-};
-
 
 /**
  * @typedef {Object} User
  * @property {number} user_id - The ID of the user.
  * @property {string} username - The username of the user.
- * @property {string} role - The role of the user (e.g., 'student', 'teacher', 'admin').
  */
 
 /**
  * @typedef {Object} LoginStatus
  * @property {User} user - The logged-in user object.
  * @property {boolean} isLoggedIn - Indicates if the user is logged in. 
- * @property {string|null} role - The role of the logged-in user, or null if not logged in.
  * @property {boolean} isLoading - Indicates if the login status is being loaded.
  * @property {Error} isError - Error object if there was an error fetching the login status.
  */
@@ -158,19 +97,13 @@ export function useLoginStatus() {
   return {
     user: data ? data.data : null,
     isLoggedIn: data ? data.success : false,
-    role: data && data.success && data.data ? data.data.role : null, // Expose role directly
     isLoading: !error && !data,
     isError: error
   };
 }
 
 export async function login(username, password) {
-  const result = await performMutation(`${API_ENDPOINT}/auth.php`, 'POST', { username, password });
-  // Ensure the role is returned as part of the login result
-  if (result.success && result.data && result.data.role) {
-    return { ...result, role: result.data.role };
-  }
-  return result;
+  return performMutation(`${API_ENDPOINT}/auth.php`, 'POST', { username, password });
 }
 
 export async function logout() {
@@ -179,22 +112,17 @@ export async function logout() {
 
 // Article API
 export function useArticle(articleId, teacherId) {
-  // Determine the SWR key. If no specific IDs are provided for fetching,
-  // and we intend to fetch only when an ID is present (e.g., teacherId for user's articles),
-  // then the key should be null to prevent fetching all articles.
-  let swrKey = null;
+  let url = `${API_ENDPOINT}/article.php`;
   if (articleId) {
-    swrKey = `${API_ENDPOINT}/article.php?article_id=${articleId}`;
+    url += `?article_id=${articleId}`;
   } else if (teacherId) {
-    // Only fetch if teacherId is explicitly provided for fetching user's articles
-    swrKey = `${API_ENDPOINT}/article.php?teacher_id=${teacherId}`;
+    url += `?teacher_id=${teacherId}`;
   } else {
-    // If neither articleId nor teacherId is provided, do not fetch.
-    // To fetch all articles, a separate function or explicit parameter could be used.
-    swrKey = null;
+    // Fetch all articles if no specific ID is provided
+    url = `${API_ENDPOINT}/article.php`;
   }
 
-  const { data, error } = useSWR(swrKey, fetcher);
+  const { data, error } = useSWR(url, fetcher);
 
   return {
     article: data ? data.data : null,
@@ -243,102 +171,47 @@ export async function createBooking(bookingData) {
   return performMutation(`${API_ENDPOINT}/booking.php`, 'POST', bookingData);
 }
 
-export async function updateBooking(bookingId, bookingData, bookingStatus) {
-  // Filter out disallowed fields for approved bookings
-  let filteredBookingData = { ...bookingData };
-
-  if (bookingStatus === 'approved') {
-    filteredBookingData = {
-      title: bookingData.title,
-      description: bookingData.description,
-      start_time: bookingData.start_time,
-      end_time: bookingData.end_time
-    };
-  }
-  return performMutation(`${API_ENDPOINT}/booking.php?booking_id=${bookingId}`, 'PUT', filteredBookingData);
+export async function updateBooking(bookingId, bookingData) {
+  return performMutation(`${API_ENDPOINT}/booking.php?booking_id=${bookingId}`, 'PUT', bookingData);
 }
 
 export async function deleteBooking(bookingId) {
   return performMutation(`${API_ENDPOINT}/booking.php?booking_id=${bookingId}`, 'DELETE');
 }
 
-// Helper function to build a nested comment tree
-const buildCommentTree = (comments, parentId = null) => {
-  const nestedComments = [];
-  comments.forEach(comment => {
-    if (comment.parent_comment_id === parentId) {
-      const replies = buildCommentTree(comments, comment.comment_id);
-      if (replies.length > 0) {
-        comment.replies = replies;
-      }
-      nestedComments.push(comment);
-    }
-  });
-  return nestedComments;
-};
-
 // Comment API
 export function useComment(commentId, articleId, parentCommentId) {
   let url = `${API_ENDPOINT}/comment.php`;
-  let swrKey = null;
-
   if (commentId) {
-    swrKey = `${url}?comment_id=${commentId}`;
+    url += `?comment_id=${commentId}`;
   } else if (articleId) {
-    // When articleId is provided, fetch all comments for that article
-    // and then build the tree client-side.
-    swrKey = `${url}?article_id=${articleId}`;
+    url += `?article_id=${articleId}`;
   } else if (parentCommentId) {
-    // This case is less likely to be used directly by CommentList now,
-    // but kept for potential specific needs.
-    swrKey = `${url}?parent_comment_id=${parentCommentId}`;
+    url += `?parent_comment_id=${parentCommentId}`;
   } else {
-    // If no specific ID, fetch all comments (might be too broad for typical use)
-    swrKey = url;
+     url = `${API_ENDPOINT}/comment.php`;
   }
 
-  const { data, error, mutate } = useSWR(swrKey, fetcher);
-
-  let processedComments = [];
-  if (data && data.success && Array.isArray(data.data)) {
-    if (articleId) {
-      // If fetching by articleId, build the nested tree
-      processedComments = buildCommentTree(data.data);
-    } else {
-      // Otherwise, return flat list or single comment
-      processedComments = data.data;
-    }
-  } else if (data && data.success && data.data && !Array.isArray(data.data)) {
-    // If a single comment is returned (e.g., by commentId)
-    processedComments = [data.data];
-  }
+  const { data, error } = useSWR(url, fetcher);
 
   return {
-    comment: processedComments.length === 1 ? processedComments[0] : null,
-    comments: processedComments,
+    comment: data ? data.data : null,
+    comments: data ? (Array.isArray(data.data) ? data.data : []) : [],
     isLoading: !error && !data,
-    isError: error,
-    mutate // Expose mutate for manual revalidation if needed
+    isError: error
   };
 }
 
 export async function createComment(commentData) {
-  // When creating a comment, we need to revalidate the relevant article's comments.
-  // The backend should handle associating the comment with the article and parent.
-  const revalidateKey = commentData.article_id ? `${API_ENDPOINT}/comment.php?article_id=${commentData.article_id}` : null;
-  return performMutation(`${API_ENDPOINT}/comment.php`, 'POST', commentData, revalidateKey);
+  return performMutation(`${API_ENDPOINT}/comment.php`, 'POST', commentData);
 }
 
 export async function updateComment(commentId, commentData) {
-  // Assuming commentData might contain article_id for revalidation
-  const revalidateKey = commentData.article_id ? `${API_ENDPOINT}/comment.php?article_id=${commentData.article_id}` : null;
-  return performMutation(`${API_ENDPOINT}/comment.php?comment_id=${commentId}`, 'PUT', commentData, revalidateKey);
+  return performMutation(`${API_ENDPOINT}/comment.php?comment_id=${commentId}`, 'PUT', commentData);
 }
 
-export async function deleteComment(commentId, articleId) {
-  // Pass articleId to revalidate the correct comment list
-  const revalidateKey = articleId ? `${API_ENDPOINT}/comment.php?article_id=${articleId}` : null;
-  return performMutation(`${API_ENDPOINT}/comment.php?comment_id=${commentId}`, 'DELETE', null, revalidateKey);
+export async function deleteComment(commentId) {
+  return performMutation(`${API_ENDPOINT}/comment.php?comment_id=${commentId}`, 'DELETE');
 }
 
 // Course API
@@ -434,19 +307,17 @@ export async function deleteEnrollment(courseId, userId) {
 }
 
 // File API
-export function useFile(fileId, uploaderId, fetchAll = false) {
-  let swrKey = null;
+export function useFile(fileId, uploaderId) {
+  let url = `${API_ENDPOINT}/file.php`;
   if (fileId) {
-    swrKey = `${API_ENDPOINT}/file.php?file_id=${fileId}`;
+    url += `?file_id=${fileId}`;
   } else if (uploaderId) {
-    swrKey = `${API_ENDPOINT}/file.php?uploader_id=${uploaderId}`;
-  } else if (fetchAll) {
-    swrKey = `${API_ENDPOINT}/file.php`; // Fetch all files
+    url += `?uploader_id=${uploaderId}`;
   } else {
-    swrKey = null; // Do not fetch if no specific ID and not explicitly fetching all
+     url = `${API_ENDPOINT}/file.php`;
   }
 
-  const { data, error } = useSWR(swrKey, fetcher);
+  const { data, error } = useSWR(url, fetcher);
 
   return {
     file: data ? data.data : null,
@@ -654,7 +525,6 @@ export async function deleteTemplate(templateId, creatorId = null) {
  * @param {Object} [params] - Optional parameters for filtering users.
  * @param {number} [params.user_id] - User ID to fetch a specific user.
  * @param {string} [params.username] - Username to search for.
- * @param {string} [params.teacher_username] - Teacher Username to search for.
  * @returns {{users: User[] | User | null, isLoading: boolean, isError: Error}}
  */
 export function useUsers(params = {}) {
@@ -663,7 +533,7 @@ export function useUsers(params = {}) {
 
   if (params) {
     isFetchingSpecificUser = !!params.user_id; // Are we trying to fetch a specific user?
-    if (params.user_id || (typeof params.username === 'string' && params.username.trim() !== '') || (typeof params.teacher_username === 'string' && params.teacher_username.trim() !== '')) {
+    if (params.user_id || (typeof params.username === 'string' && params.username.trim() !== '')) {
       // Only set fetchKey if user_id is present, or username is a non-empty string.
       const query = new URLSearchParams(params);
       const queryString = query.toString();
@@ -801,28 +671,6 @@ export async function updateCalendarEvent(eventId, eventData) {
 }
 */
 
-/**
- * Fetches a teacher's occupied slots.
- * @param {number} teacherId - The ID of the teacher.
- * @returns {{occupiedSlots: {start_datetime: string, end_datetime: string}[], isLoading: boolean, isError: Error}}
- */
-export function useTeacherOccupiedSlots(teacherId) {
-  const url = teacherId ? `${API_ENDPOINT}/teacher_calendar.php?teacher_id=${teacherId}` : null;
-  const { data, error, isLoading } = useSWR(url, fetcher);
-
-  console.log(`useTeacherOccupiedSlots for teacherId ${teacherId}:`);
-  console.log('  URL:', url);
-  console.log('  Data:', data);
-  console.log('  Error:', error);
-  console.log('  isLoading:', isLoading);
-
-  return {
-    occupiedSlots: data && data.success ? (Array.isArray(data.data) ? data.data : []) : [],
-    isLoading: isLoading, // Use isLoading directly from SWR
-    isError: error
-  };
-}
-
 // Student Courses API
 /**
  * Fetches enrolled courses for a given student.
@@ -844,7 +692,7 @@ export function useStudentCourses(userId) {
       if (enrollment && typeof enrollment.course_id !== 'undefined') {
         return {
           id: enrollment.course_id,
-          name: enrollment.course_name
+          name: `Course ${enrollment.course_id}` // Placeholder name
           // enrollment_id: enrollment.enrollment_id, // Optionally include other enrollment details
           // student_id: enrollment.student_id,
           // enrolled_at: enrollment.enrolled_at
@@ -860,157 +708,3 @@ export function useStudentCourses(userId) {
     isError: error
   };
 }
-
-// Course Content API functions
-
-// GET /api/course_content.php?course_id={course_id}
-export const getCourseContent = async (courseId) => {
-  console.log(`API CALL (Real): getCourseContent for courseId: ${courseId}`);
-  const token = localStorage.getItem('token');
-  const userRole = localStorage.getItem('userRole'); // Get userRole inside the function
-
-  const headers = {
-    'Content-Type': 'application/json',
-  };
-
-  // Add Authorization header if token exists, as per typical API security for fetching user-related data.
-  // The API documentation for GET /api/course_content.php implies user context is needed
-  // due to permission checks (public vs. private courses, user enrollment/ownership).
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  if (userRole) {
-    headers['X-User-Role'] = userRole;
-  }
-
-  try {
-    const response = await fetch(`${API_ENDPOINT}/course_content.php?course_id=${courseId}`, {
-      method: 'GET',
-      headers: headers,
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      // If response is not OK (e.g., 400, 401, 403, 404, 500),
-      // use the message from the API response if available, otherwise a default error.
-      // This covers cases like "Unauthorized: Please log in.", "Forbidden: ...", "Not Found: ..."
-      throw new Error(result.message || `Error ${response.status}: Failed to fetch course content`);
-    }
-
-    // According to the API documentation, on HTTP 200 OK, the response is:
-    // { success: true, message: "Course content retrieved successfully.", data: [...] }
-    // or an error structure like { success: false, message: "..." } for logical errors handled by the backend (e.g. bad request if course_id required but missing)
-    if (result.success) {
-      return result.data; // This should be the array of content items.
-    } else {
-      // If the API itself returns success: false (even with a 200 OK, though less common for GETs),
-      // use its message.
-      throw new Error(result.message || 'API returned success: false but no error message.');
-    }
-  } catch (error) {
-    // This catch block handles network errors, JSON parsing errors, or errors thrown from above.
-    console.error('Error in getCourseContent:', error.message);
-    // Re-throw the error so the calling component (CourseContent.js) can catch it
-    // and update its UI (e.g., show an error message to the user).
-    throw error;
-  }
-};
-
-// POST /api/course_content.php
-export const addCourseContent = async (courseId, articleId, fileId) => {
-  console.log(`API CALL (Real): addCourseContent for courseId: ${courseId}`, { articleId, fileId });
-  const token = localStorage.getItem('token');
-  const userRole = localStorage.getItem('userRole'); // Get userRole inside the function
-
-  const headers = {
-    'Content-Type': 'application/json',
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  if (userRole) {
-    headers['X-User-Role'] = userRole;
-  }
-
-  const body = {
-    course_id: courseId,
-  };
-  if (articleId) {
-    body.article_id = articleId;
-  } else if (fileId) {
-    body.file_id = fileId;
-  }
-
-  // Basic validation, though API docs say course_id and one of article/file_id are required.
-  // The calling component (AddCourseContentModal) should ensure these are provided.
-  if (!body.course_id || (!body.article_id && !body.file_id)) {
-    console.error('addCourseContent: course_id and either article_id or file_id must be provided.');
-    // Return structure consistent with API error for client-side validation failure.
-    return { success: false, message: 'Bad Request: Course ID and either article_id or file_id is required from client-side check.' };
-  }
-
-  try {
-    const response = await fetch(`${API_ENDPOINT}/course_content.php`, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(body),
-    });
-
-    const result = await response.json();
-
-    // The API documentation specifies various success (201) and error (400, 401, 403, 500) responses.
-    // We'll return the parsed result directly, as CourseContent.js expects an object with 'success' and 'message'.
-    // If !response.ok, result should contain { success: false, message: "..." } from the API.
-    // If response.ok (e.g. 201), result should contain { success: true, message: "...", data: {id: ...} }.
-    return result;
-
-  } catch (error) {
-    console.error('Network or parsing error in addCourseContent:', error);
-    // Return an error structure consistent with API responses for unhandled errors.
-    return { success: false, message: error.message || 'Network error or failed to parse response.' };
-  }
-};
-
-// DELETE /api/course_content.php?id={content_id}
-export const deleteCourseContent = async (courseId, articleId, fileId) => {
-  console.log(`API CALL (Real): deleteCourseContent for courseId: ${courseId}, articleId: ${articleId}, fileId: ${fileId}`);
-  const token = localStorage.getItem('token');
-  const userRole = localStorage.getItem('userRole'); // Get userRole inside the function
-
-  const headers = {
-    'Content-Type': 'application/json',
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  if (userRole) {
-    headers['X-User-Role'] = userRole;
-  }
-
-  let queryString = `course_id=${courseId}`;
-  if (articleId) {
-    queryString += `&article_id=${articleId}`;
-  } else if (fileId) {
-    queryString += `&file_id=${fileId}`;
-  } else {
-    console.error('deleteCourseContent: Either articleId or fileId must be provided.');
-    return { success: false, message: 'Bad Request: Either article_id or file_id is required for deletion.' };
-  }
-
-  try {
-    const response = await fetch(`${API_ENDPOINT}/course_content.php?${queryString}`, {
-      method: 'DELETE',
-      headers: headers,
-    });
-
-    const result = await response.json();
-    return result;
-
-  } catch (error) {
-    console.error('Network or parsing error in deleteCourseContent:', error);
-    return { success: false, message: error.message || 'Network error or failed to parse response.' };
-  }
-};

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Card, Container, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import AddCourseContentModal from './AddCourseContentModal';
-import { getCourseContent, deleteCourseContent, addCourseContent, downloadFile } from '../api'; // Import API functions
+import { getCourseContent, deleteCourseContent, addCourseContent, downloadFile, useCourse } from '../api'; // Import API functions
 import ArticleView from './ArticleView'; // Import ArticleView
 import FileListAndDownload from './FileListAndDownload'; // Import FileListAndDownload
 
@@ -10,9 +10,11 @@ const CourseContent = ({ course_id, user }) => { // Changed courseId to course_i
   const [loading, setLoading] = useState(true); // Fixed syntax error: added useState
   const [error, setError] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [courseName, setCourseName] = useState('Course Name');
   const [selectedArticleId, setSelectedArticleId] = useState(null); // State for selected article
   const [selectedFileId, setSelectedFileId] = useState(null); // State for selected file
+
+  // Fetch course details using useCourse hook
+  const { course, isLoading: isCourseLoading, isError: courseError } = useCourse(course_id);
 
   useEffect(() => {
     if (!course_id) { // Use course_id
@@ -21,7 +23,7 @@ const CourseContent = ({ course_id, user }) => { // Changed courseId to course_i
       return;
     }
 
-    const fetchContentAndCourseDetails = async () => {
+    const fetchContent = async () => {
       setLoading(true);
       setError(null);
       try {
@@ -42,19 +44,6 @@ const CourseContent = ({ course_id, user }) => { // Changed courseId to course_i
         console.log('CourseContent - Processed content:', JSON.stringify(processedContent, null, 2)); // Log processed content
         setContent(processedContent);
 
-        // Placeholder for fetching course name - ideally from a course details API endpoint
-        // For now, use a simple mapping or default
-        if (course_id === "1") {
-            setCourseName("Mathematics 101");
-        } else if (course_id === "2") {
-            setCourseName("History of Art");
-        } else {
-            // In a real app, you might fetch course details here
-            // const courseDetails = await getCourseDetails(course_id);
-            // setCourseName(courseDetails.name);
-            setCourseName(`Course ${course_id}`); // Fallback
-        }
-
       } catch (err) {
         console.error('Error fetching course content:', err);
         setError(err.message || 'Failed to load course content. Please try again later.');
@@ -63,8 +52,18 @@ const CourseContent = ({ course_id, user }) => { // Changed courseId to course_i
       }
     };
 
-    fetchContentAndCourseDetails();
-  }, [course_id]);
+    fetchContent();
+  }, [course_id, user]); // Added user to dependency array for completeness
+
+  // Handle course name and overall loading/error state
+  const displayCourseName = course ? course.course_name : `Course ${course_id}`;
+  const overallLoading = loading || isCourseLoading;
+  const overallError = error || courseError;
+
+  console.log('Course object:', course);
+  console.log('isCourseLoading:', isCourseLoading);
+  console.log('courseError:', courseError);
+  console.log('displayCourseName:', displayCourseName);
 
   const handleShowAddModal = () => setShowAddModal(true);
   const handleCloseAddModal = () => {
@@ -219,7 +218,7 @@ const CourseContent = ({ course_id, user }) => { // Changed courseId to course_i
       )}
       <Row className="align-items-center mb-4">
         <Col>
-          <h2>{courseName} - Content</h2>
+          <h2>{displayCourseName}</h2>
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={handleShowAddModal}>

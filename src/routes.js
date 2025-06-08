@@ -25,6 +25,7 @@ import MyCourses from './components/MyCourses'; // Import MyCourses
 import CourseContent from './components/CourseContent'; // Import CourseContent
 import FileUpload from './components/FileUpload'; // Import FileUpload
 import FileListAndDownload from './components/FileListAndDownload'; // Import FileListAndDownload
+import TeacherTemplateSharing from './components/TeacherTemplateSharing'; // Import TeacherTemplateSharing
 
 const components = {
   Component1: Component1,
@@ -50,6 +51,7 @@ const components = {
   CourseContent: CourseContent, // Add CourseContent to the map
   FileUpload: FileUpload, // Add FileUpload to the map
   FileListAndDownload: FileListAndDownload, // Add FileListAndDownload to the map
+  TeacherTemplateSharing: TeacherTemplateSharing
 };
 
 // Modified renderComponent to accept and pass props

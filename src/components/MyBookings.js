@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Form, Alert, Table, Spinner } from 'react-bootstrap'; // Import Table, Spinner
-import { createBooking, useBooking, useLoginStatus, updateBooking, useTeacherOccupiedSlots } from '../api'; // Import updateBooking, useTeacherOccupiedSlots
-import { formatBookingDateTime } from '../utils/dateUtils'; // Import formatBookingDateTime
+import { Modal, Button, Form, Alert, Table, Spinner, ListGroup } from 'react-bootstrap';
+import { createBooking, useBooking, useLoginStatus, updateBooking, useTeacherOccupiedSlots } from '../api';
+import { formatBookingDateTime } from '../utils/dateUtils';
+import TeacherSearch from './TeacherSearch';
 
 
 const MyBookings = () => {
@@ -15,13 +16,16 @@ const MyBookings = () => {
   const [endTime, setEndTime] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [teacherId, setTeacherId] = useState('');
+  const [selectedTeacher, setSelectedTeacher] = useState(null); // Store selected teacher object
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingError, setBookingError] = useState(null);
   const [isBookingLoading, setIsBookingLoading] = useState(false);
 
+  // Get teacherId from selectedTeacher
+  const teacherId = selectedTeacher ? selectedTeacher.user_id : null;
+
   // Fetch teacher's occupied slots
-  const { occupiedSlots, isLoading: isOccupiedSlotsLoading, isError: occupiedSlotsError } = useTeacherOccupiedSlots(parseInt(teacherId, 10));
+  const { occupiedSlots, isLoading: isOccupiedSlotsLoading, isError: occupiedSlotsError } = useTeacherOccupiedSlots(teacherId);
 
   // States for editing/viewing existing bookings
   const [showEditModal, setShowEditModal] = useState(false);
@@ -30,20 +34,21 @@ const MyBookings = () => {
   const [editDescription, setEditDescription] = useState('');
   const [editStartTime, setEditStartTime] = useState('');
   const [editEndTime, setEditEndTime] = useState('');
-  const [editTeacherId, setEditTeacherId] = useState(''); // State for editing teacher ID
+  const [editSelectedTeacher, setEditSelectedTeacher] = useState(null); // State for selected teacher during edit
   const [editUpdateMessage, setEditUpdateMessage] = useState('');
   const [isEditUpdating, setIsEditUpdating] = useState(false);
 
-  const handleCloseCreateModal = () => { // Renamed for clarity
+  const handleCloseCreateModal = () => {
     setShowModal(false);
     setStartTime('');
     setEndTime('');
     setTitle('');
     setDescription('');
-    setTeacherId('');
+    setSelectedTeacher(null);
     setBookingError(null);
   };
-  const handleShowCreateModal = () => { // Renamed for clarity
+
+  const handleShowCreateModal = () => {
     setBookingSuccess(false);
     setBookingError(null);
     setShowModal(true);
@@ -55,13 +60,7 @@ const MyBookings = () => {
     setBookingError(null);
 
     // Only perform check if all necessary inputs are available and modal is open
-    if (!showModal || !startTime || !endTime || !teacherId || isOccupiedSlotsLoading || occupiedSlotsError) {
-      return;
-    }
-
-    const parsedTeacherId = parseInt(teacherId, 10);
-    if (isNaN(parsedTeacherId)) {
-      setBookingError('Invalid Teacher ID. Please enter a valid number.');
+    if (!showModal || !startTime || !endTime || !selectedTeacher || isOccupiedSlotsLoading || occupiedSlotsError) {
       return;
     }
 
@@ -73,7 +72,7 @@ const MyBookings = () => {
     // If no conflicts and all checks pass, clear any previous booking errors
     setBookingError(null);
 
-  }, [startTime, endTime, teacherId, occupiedSlots, isOccupiedSlotsLoading, occupiedSlotsError, showModal]);
+  }, [startTime, endTime, selectedTeacher, occupiedSlots, isOccupiedSlotsLoading, occupiedSlotsError, showModal]);
 
   // Helper function to check for time conflicts
   const checkTimeConflict = (newStartTime, newEndTime, existingSlots) => {
@@ -98,15 +97,26 @@ const MyBookings = () => {
     return false; // No conflict
   };
 
-  const handleShowEditModal = (booking) => {
-    setSelectedBookingForEdit(booking);
-    setEditTitle(booking.title);
-    setEditDescription(booking.description || '');
-    setEditStartTime(booking.start_time.substring(0, 16)); // Format for datetime-local input
-    setEditEndTime(booking.end_time.substring(0, 16)); // Format for datetime-local input
-    setEditTeacherId(booking.teacher_id); // Initialize teacher ID for editing
-    setEditUpdateMessage('');
-    setShowEditModal(true);
+ const handleShowEditModal = (booking) => {
+    if (booking.status === 'pending' || booking.status === 'approved') {
+      setSelectedBookingForEdit(booking);
+      setEditTitle(booking.title);
+      setEditDescription(booking.description || '');
+      setEditStartTime(booking.start_time.substring(0, 16)); // Format for datetime-local input
+      setEditEndTime(booking.end_time.substring(0, 16)); // Format for datetime-local input
+	  setEditSelectedTeacher({ user_id: booking.teacher_id, username: booking.teacher_username });
+      setEditUpdateMessage('');
+      setShowEditModal(true);
+    } else if (booking.status === 'denied') {
+      setSelectedBookingForEdit(booking);
+      setEditTitle(booking.title);
+      setEditDescription(booking.description || '');
+      setEditStartTime(booking.start_time.substring(0, 16)); // Format for datetime-local input
+      setEditEndTime(booking.end_time.substring(0, 16)); // Format for datetime-local input
+	  setEditSelectedTeacher({ user_id: booking.teacher_id, username: booking.teacher_username });
+      setEditUpdateMessage('');
+      setShowEditModal(true);
+    }
   };
 
   const handleCloseEditModal = () => {
@@ -119,11 +129,15 @@ const MyBookings = () => {
     e.preventDefault();
     if (!selectedBookingForEdit) return;
 
+    if (selectedBookingForEdit.status !== 'denied') {
+      setEditUpdateMessage('Only denied bookings can be resubmitted.');
+      return;
+    }
+
     setIsEditUpdating(true);
     setEditUpdateMessage('');
 
     const updatedData = {
-      teacher_id: parseInt(editTeacherId, 10), // Allow changing teacher
       title: editTitle,
       description: editDescription,
       start_time: editStartTime,
@@ -131,7 +145,7 @@ const MyBookings = () => {
       status: 'pending', // Force status to pending on resubmit
     };
 
-    const result = await updateBooking(selectedBookingForEdit.booking_id, updatedData);
+    const result = await updateBooking(selectedBookingForEdit.booking_id, updatedData, selectedBookingForEdit.status);
 
     if (result.success) {
       setEditUpdateMessage('Booking resubmitted successfully.');
@@ -168,22 +182,13 @@ const MyBookings = () => {
       return;
     }
 
-    if (!startTime || !endTime || !title || !teacherId) {
-      setBookingError('Please fill in all required fields (Start Time, End Time, Title, Teacher ID).');
+    if (!startTime || !endTime || !title || !selectedTeacher) {
+      setBookingError('Please fill in all required fields (Start Time, End Time, Title, Teacher).');
       console.log('handleBooking: Missing required fields, returning.');
       return;
     }
 
-    // Convert teacherId to integer for API call and hook
-    const parsedTeacherId = parseInt(teacherId, 10);
-    if (isNaN(parsedTeacherId)) {
-      setBookingError('Invalid Teacher ID. Please enter a valid number.');
-      console.log('handleBooking: Invalid Teacher ID, returning.');
-      return;
-    }
-
     setIsBookingLoading(true);
-    console.log('handleBooking: setIsBookingLoading(true)');
     setBookingError(null);
     setBookingSuccess(false);
 
@@ -202,28 +207,15 @@ const MyBookings = () => {
       return;
     }
 
-    // This duplicate check is redundant, remove it.
-    // if (occupiedSlotsError) {
-    //   setBookingError(`Error checking teacher availability: ${occupiedSlotsError.message}`);
-    //   setIsBookingLoading(false);
-    //   return;
-    // }
-
     console.log('Checking time conflict:');
     console.log('  New Start Time:', startTime);
     console.log('  New End Time:', endTime);
     console.log('  Occupied Slots:', occupiedSlots);
 
-    if (checkTimeConflict(startTime, endTime, occupiedSlots)) {
-      setBookingError('The selected time slot is already occupied by the teacher. Please choose another time.');
-      setIsBookingLoading(false);
-      return;
-    }
-
     try {
       const bookingData = {
-        teacher_id: parsedTeacherId,
-        requester_user_id: requesterUserId, // Use actual logged-in user's ID
+        teacher_id: selectedTeacher.user_id, // Use teacherId from selectedTeacher
+        requester_user_id: requesterUserId,
         start_time: startTime,
         end_time: endTime,
         title: title,
@@ -235,12 +227,7 @@ const MyBookings = () => {
 
       if (response.success) {
         setBookingSuccess(true);
-        setStartTime('');
-        setEndTime('');
-        setTitle('');
-        setDescription('');
-        setTeacherId('');
-        // No need to manually mutate here, performMutation handles it
+        handleCloseCreateModal();
       } else {
         setBookingError(response.error || 'Booking failed.');
       }
@@ -249,7 +236,6 @@ const MyBookings = () => {
       console.error('Error booking appointment:', err);
     } finally {
       setIsBookingLoading(false);
-      console.log('setIsBookingLoading(false) called in finally block.');
     }
   };
 
@@ -303,7 +289,7 @@ const MyBookings = () => {
             {approvedBookings.map(booking => (
               <tr key={booking.booking_id} className="table-success" onClick={() => handleShowEditModal(booking)} style={{ cursor: 'pointer' }}>
                 <td>{booking.title}</td>
-                <td>{booking.teacher_name}</td>
+                <td>{booking.teacher_username}</td>
                 <td>{formatBookingDateTime(booking.start_time, booking.end_time)}</td>
                 <td>{booking.status}</td>
               </tr>
@@ -329,7 +315,7 @@ const MyBookings = () => {
             {deniedBookings.map(booking => (
               <tr key={booking.booking_id} className="table-danger" onClick={() => handleShowEditModal(booking)} style={{ cursor: 'pointer' }}>
                 <td>{booking.title}</td>
-                <td>{booking.teacher_name}</td>
+                <td>{booking.teacher_username}</td>
                 <td>{formatBookingDateTime(booking.start_time, booking.end_time)}</td>
                 <td>{booking.status}</td>
               </tr>
@@ -353,9 +339,9 @@ const MyBookings = () => {
           </thead>
           <tbody>
             {pendingBookings.map(booking => (
-              <tr key={booking.booking_id} className="table-warning" onClick={() => handleShowEditModal(booking)} style={{ cursor: 'pointer' }}>
+              <tr key={booking.booking_id} className="table-warning">
                 <td>{booking.title}</td>
-                <td>{booking.teacher_name}</td>
+                <td>{booking.teacher_username}</td>
                 <td>{formatBookingDateTime(booking.start_time, booking.end_time)}</td>
                 <td>{booking.status}</td>
               </tr>
@@ -373,15 +359,9 @@ const MyBookings = () => {
           {isOccupiedSlotsLoading && <Spinner animation="border" size="sm" className="me-2" />}
           {occupiedSlotsError && <Alert variant="danger">Error loading teacher availability: {occupiedSlotsError.message || 'Unknown error'}</Alert>}
           <Form onSubmit={handleBooking}>
-             <Form.Group className="mb-3" controlId="teacherId">
-              <Form.Label>Teacher ID</Form.Label>
-              <Form.Control
-                type="number"
-                placeholder="Enter Teacher ID"
-                value={teacherId}
-                onChange={(e) => setTeacherId(e.target.value)}
-                required
-              />
+            <Form.Group className="mb-3" controlId="teacherSearch">
+              <Form.Label>Teacher</Form.Label>
+              <TeacherSearch setSelectedTeacher={setSelectedTeacher} />
             </Form.Group>
 
             <Form.Group className="mb-3" controlId="title">
@@ -426,20 +406,14 @@ const MyBookings = () => {
               />
             </Form.Group>
 
-            <Button type="submit" style={{ display: 'none' }} />
+            <Button type="submit" disabled={isBookingLoading}>
+              {isBookingLoading ? 'Creating...' : 'Create'}
+            </Button>
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button
-            variant="primary"
-            onClick={handleBooking}
-            disabled={isBookingLoading || isOccupiedSlotsLoading || isNaN(parseInt(teacherId, 10))} // Disable if booking is loading, occupied slots are loading, or teacherId is invalid
-          >
-            {console.log('Button disabled state:', isBookingLoading, isOccupiedSlotsLoading, isNaN(parseInt(teacherId, 10)))}
-            {isBookingLoading || isOccupiedSlotsLoading ? '建立中...' : '確認建立'}
-          </Button>
-          <Button variant="secondary" onClick={handleCloseCreateModal} disabled={isBookingLoading || isOccupiedSlotsLoading || isNaN(parseInt(teacherId, 10))}>
-            關閉
+          <Button variant="secondary" onClick={handleCloseCreateModal}>
+            Close
           </Button>
         </Modal.Footer>
       </Modal>
@@ -453,21 +427,14 @@ const MyBookings = () => {
           {editUpdateMessage && <Alert variant={editUpdateMessage.includes('Failed') ? 'danger' : 'success'}>{editUpdateMessage}</Alert>}
           {isEditUpdating && <Spinner animation="border" size="sm" className="me-2" />}
           {selectedBookingForEdit ? (
-            <Form onSubmit={handleResubmitBooking}>
-              <p><strong>Teacher:</strong> {selectedBookingForEdit.teacher_name}</p>
+                       <Form onSubmit={handleResubmitBooking}>
+              <p><strong>老師:</strong> {editSelectedTeacher?.username}</p>
               <p><strong>Current Status:</strong> {selectedBookingForEdit.status}</p>
               <p><strong>Time:</strong> {formatBookingDateTime(selectedBookingForEdit.start_time, selectedBookingForEdit.end_time)}</p>
 
-              <Form.Group className="mb-3" controlId="editTeacherId">
-                <Form.Label>Teacher ID</Form.Label>
-                <Form.Control
-                  type="number"
-                  placeholder="Enter Teacher ID"
-                  value={editTeacherId}
-                  onChange={(e) => setEditTeacherId(e.target.value)}
-                  disabled={selectedBookingForEdit.status === 'denied' || isEditUpdating} // Disable if denied or updating
-                  required
-                />
+              <Form.Group className="mb-3" controlId="editTeacherSearch">
+                <Form.Label>Teacher</Form.Label>
+                <p>{editSelectedTeacher?.username}</p>
               </Form.Group>
 
               <Form.Group className="mb-3" controlId="editTitle">
@@ -476,7 +443,7 @@ const MyBookings = () => {
                   type="text"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  disabled={isEditUpdating}
+                  disabled={isEditUpdating || selectedBookingForEdit.status === 'pending' || selectedBookingForEdit.status === 'approved'}
                   required
                 />
               </Form.Group>
@@ -488,7 +455,7 @@ const MyBookings = () => {
                   rows={3}
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
-                  disabled={isEditUpdating}
+                  disabled={isEditUpdating || selectedBookingForEdit.status === 'pending' || selectedBookingForEdit.status === 'approved'}
                 />
               </Form.Group>
 
@@ -498,7 +465,7 @@ const MyBookings = () => {
                   type="datetime-local"
                   value={editStartTime}
                   onChange={(e) => setEditStartTime(e.target.value)}
-                  disabled={isEditUpdating}
+                  disabled={isEditUpdating || selectedBookingForEdit.status === 'pending' || selectedBookingForEdit.status === 'approved'}
                   required
                 />
               </Form.Group>
@@ -509,25 +476,22 @@ const MyBookings = () => {
                   type="datetime-local"
                   value={editEndTime}
                   onChange={(e) => setEditEndTime(e.target.value)}
-                  disabled={isEditUpdating}
+                  disabled={isEditUpdating || selectedBookingForEdit.status === 'pending' || selectedBookingForEdit.status === 'approved'}
                   required
                 />
               </Form.Group>
 
-              <Button type="submit" style={{ display: 'none' }} /> {/* Hidden submit button */}
+              <Button type="submit" disabled={isEditUpdating || selectedBookingForEdit.status === 'pending' || selectedBookingForEdit.status === 'approved'} >
+                {isEditUpdating ? '更新中...' : '更新'}
+              </Button>
             </Form>
           ) : (
             <p>No booking selected.</p>
           )}
         </Modal.Body>
         <Modal.Footer>
-          {selectedBookingForEdit && ( // Resubmit button always available for requester
-            <Button variant="primary" onClick={handleResubmitBooking} disabled={isEditUpdating}>
-              {isEditUpdating ? '重新送出中...' : '重新送出 (Resubmit)'}
-            </Button>
-          )}
           {selectedBookingForEdit && (
-            <Button variant="danger" onClick={handleCancelBooking} disabled={isEditUpdating}>
+            <Button variant="danger" onClick={handleCancelBooking} disabled={isEditUpdating || selectedBookingForEdit.status === 'pending' || selectedBookingForEdit.status === 'approved'}>
               {isEditUpdating ? '取消中...' : '取消預約'}
             </Button>
           )}

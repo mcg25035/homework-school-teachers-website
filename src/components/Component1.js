@@ -1,7 +1,7 @@
 import React from 'react';
 import { Container, Button, Row, Col } from 'react-bootstrap'; // Removed Jumbotron, added Row, Col
 
-function Component1({ setActiveComponent, isLoggedIn }) {
+function Component1({ setActiveComponent, isLoggedIn, userRole }) {
   return (
     <Container className="text-center mt-5 py-5 bg-light rounded"> {/* Added bg-light and rounded for styling */}
       <Row className="justify-content-center">
@@ -15,11 +15,19 @@ function Component1({ setActiveComponent, isLoggedIn }) {
             無論您是教師還是學生，我們都致力於提供最佳的學習和管理體驗。
           </p>
           {isLoggedIn ? (
-            <p>
-              <Button variant="primary" onClick={() => setActiveComponent('CourseList')}>
-                查看我的課程
-              </Button>
-            </p>
+            userRole !== 'teacher' ? (
+              <p>
+                <Button variant="primary" onClick={() => setActiveComponent('MyCourses')}>
+                  查看我的課程
+                </Button>
+              </p>
+            ) : (
+              <p>
+                <Button variant="primary" onClick={() => setActiveComponent('CourseList')}>
+                  查看我的課程
+                </Button>
+              </p>
+            )
           ) : (
             <p>
               <Button variant="primary" onClick={() => setActiveComponent('Login')}>

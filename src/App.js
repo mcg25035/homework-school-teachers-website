@@ -34,20 +34,26 @@ function App() {
     { component: 'CourseList', display: '課程', roles: ['teacher'] },
     { component: 'MyBookings', display: '我的預約', roles: ['user'] },
     { component: 'TeacherBookings', display: '查看預約', roles: ['teacher'] },
-    { component: 'ArticleList', display: '文章', roles: ['user', 'teacher'] },
+    { component: 'ArticleList', display: '文章', roles: ['teacher'] },
     { component: 'TeacherCalendar', display: '行事曆', roles: ['teacher'] },
-    { component: 'TeacherPersonalPageEditor', display: '編輯個人頁面', roles: ['teacher', 'user'] },
-    { component: 'TeacherPublicPageView', display: '個人頁面展示', roles: ['teacher'], hidden: true }, // Add TeacherPublicPageView to functionList
-    { component: 'DevTeacherPagePortal', display: '個人頁面模板', roles: ['teacher'] }, // Changed display and roles for DevTeacherPagePortal
+    { component: 'TeacherPersonalPageEditor', display: '編輯個人頁面', roles: ['teacher'] },
+
+    { component: 'TeacherPublicPageView', display: '個人頁面展示', roles: ['teacher', 'user'], hidden: true }, // Add TeacherPublicPageView to functionList
+    { component: 'DevTeacherPagePortal', display: '查看老師頁面', roles: ['user'] },
+    { component: 'TeacherTemplateSharing', display: '個人頁面模板', roles: ['teacher'] }, // Changed display and roles for DevTeacherPagePortal
     { component: 'FileUpload', display: '檔案上傳', roles: ['teacher'] },
     { component: 'FileListAndDownload', display: '檔案列表與下載', roles: ['teacher'] },
     { component: 'MyCourses', display: '我的課程', roles: ['user'] },
+
+    { component: 'ArticleList', display: '文章', roles: ['user'], hidden: true }, // Add hidden property for ArticleList
+    { component: 'TeacherPersonalPageEditor', display: '編輯個人頁面', roles: ['user'], hidden: true }, // Add hidden property for TeacherPersonalPageEditor
     { component: 'CourseContent', display: '課程內容', roles: ['user', 'teacher'], hidden: true },
     { component: 'ManageCourseEnrollment', display: '管理學生', roles: ['teacher'], hidden: true },
     { component: 'CreateCourse', display: '創建課程', roles: ['teacher'], hidden: true},
     { component: 'EditCourse', display: '編輯課程', roles: ['teacher'], hidden: true },
     { component: 'CreateArticle', display: '創建文章', roles: ['teacher'], hidden: true },
     { component: 'EditArticle', display: '編輯文章', roles: ['teacher'], hidden: true },
+    { component: 'ArticleView', display: '文章查看', roles: ['user', 'teacher'], hidden: true}
   ];
 
   // Use useEffect to handle initial component display or redirect on role change
@@ -95,6 +101,7 @@ function App() {
         user: user,
         setActiveComponent: handleSetActiveComponent,
         isLoggedIn: isLoggedIn, // Pass isLoggedIn to Component1
+        userRole: role, // Pass userRole to Component1
       });
     }
 
@@ -102,9 +109,11 @@ function App() {
     // Otherwise, check if the user's role is included in the allowed roles for the component.
     if (!activeComponentInfo.roles || (role && activeComponentInfo.roles.includes(role))) {
       return renderComponent(activeComponentState.name, {
+        teacherId: activeComponentState.props.teacherId,
         ...activeComponentState.props,
         user: user,
         setActiveComponent: handleSetActiveComponent,
+        userRole: role, // Pass userRole to the component
       });
     } else {
       // User does not have the required role

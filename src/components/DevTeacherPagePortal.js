@@ -1,28 +1,23 @@
 import React, { useState } from 'react';
-import { Form, Button, Container, Card, Alert } from 'react-bootstrap';
+import { Button, Container, Card, Alert, Form } from 'react-bootstrap';
+import TeacherSearch from './TeacherSearch';
 
 function DevTeacherPagePortal({ setActiveComponent }) {
-  const [teacherIdInput, setTeacherIdInput] = useState('');
+  const [selectedTeacher, setSelectedTeacher] = useState(null);
   const [error, setError] = useState('');
 
-  const handleInputChange = (event) => {
-    setTeacherIdInput(event.target.value);
-    if (error) {
-      setError(''); // Clear error when user starts typing
-    }
+  const handleTeacherSelect = (teacher) => {
+    setSelectedTeacher(teacher);
   };
 
   const handleViewPageClick = () => {
-    const numericId = parseInt(teacherIdInput, 10);
-    if (isNaN(numericId) || numericId <= 0) {
-      setError('Please enter a valid positive Teacher ID.');
+    if (!selectedTeacher) {
+      setError('Please select a teacher.');
       return;
     }
-    setError(''); // Clear any previous error
 
-    // Use setActiveComponent (passed as a prop) to navigate
     if (setActiveComponent) {
-      setActiveComponent('TeacherPublicPageView', { teacherUserIdFromProp: numericId });
+      setActiveComponent('TeacherPublicPageView', { teacherId: selectedTeacher.user_id });
     } else {
       console.error('setActiveComponent prop is not available in DevTeacherPagePortal.');
       setError('Navigation function is not available.');
@@ -32,21 +27,12 @@ function DevTeacherPagePortal({ setActiveComponent }) {
   return (
     <Container fluid className="mt-3">
       <Card>
-        <Card.Header as="h4">Developer Portal: View Teacher Page</Card.Header>
+        <Card.Header as="h4">View Teacher Page</Card.Header>
         <Card.Body>
           <Form>
-            <Form.Group className="mb-3" controlId="teacherIdInput">
-              <Form.Label>Teacher User ID</Form.Label>
-              <Form.Control
-                type="text" // Input type text to allow any input, validation done on submit
-                placeholder="Enter Teacher User ID"
-                value={teacherIdInput}
-                onChange={handleInputChange}
-                isInvalid={!!error}
-              />
-              {error && <Form.Control.Feedback type="invalid">{error}</Form.Control.Feedback>}
-            </Form.Group>
-            <Button variant="primary" onClick={handleViewPageClick}>
+          <TeacherSearch setSelectedTeacher={handleTeacherSelect} />
+            {error && <Alert variant="danger">{error}</Alert>}
+            <Button variant="primary" onClick={handleViewPageClick} disabled={!selectedTeacher}>
               View Teacher Page
             </Button>
           </Form>
