@@ -60,7 +60,7 @@ function ArticleView({ articleId, user, setActiveComponent }) {
         </Card.Text>
         <hr />
         <h4>Comments</h4>
-        <CommentList articleId={article.article_id} />
+        <CommentList articleId={article.article_id} articleAuthorId={article.teacher_id} />
       </Card.Body>
     </Card>
   );

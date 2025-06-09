@@ -1,15 +1,19 @@
 import React from 'react';
-import { useComment } from '../api';
+import { useComment, useLoginStatus } from '../api'; // Import useLoginStatus
 import { ListGroup, Alert, Spinner } from 'react-bootstrap';
-import CommentItem from './CommentItem'; // Import the new CommentItem component
-import CreateComment from './CreateComment'; // Import CreateComment for adding new comments
+import CommentItem from './CommentItem';
+import CreateComment from './CreateComment';
 
-function CommentList({ articleId }) {
-  // Fetch top-level comments (where parent_comment_id is null)
-  // The useComment hook in api.js should handle fetching top-level comments when parentCommentId is not provided.
+function CommentList({ articleId, articleAuthorId }) {
+  const { user: currentUser, isLoading: isLoadingUser } = useLoginStatus();
+  const currentUserId = currentUser ? currentUser.user_id : null;
+
+  console.log('CommentList - currentUserId:', currentUserId);
+  console.log('CommentList - articleAuthorId:', articleAuthorId);
+
   const { comments, isLoading, isError, mutate: refreshComments } = useComment(null, articleId, null);
 
-  if (isLoading) return <Spinner animation="border" size="sm" role="status"><span className="visually-hidden">Loading comments...</span></Spinner>;
+  if (isLoading || isLoadingUser) return <Spinner animation="border" size="sm" role="status"><span className="visually-hidden">Loading comments...</span></Spinner>;
   if (isError) return <Alert variant="warning">Could not load comments. Please try again later.</Alert>;
 
   // Filter out comments that have a parent_comment_id, as they will be rendered as replies
@@ -43,6 +47,8 @@ function CommentList({ articleId }) {
               articleId={articleId}
               refreshComments={refreshComments}
               depth={0} // Initial depth for top-level comments
+              currentUserId={currentUserId} // Pass current user ID
+              articleAuthorId={articleAuthorId} // Pass article author ID
             />
           ))}
         </ListGroup>

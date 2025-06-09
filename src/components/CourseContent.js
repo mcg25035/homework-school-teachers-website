@@ -221,9 +221,11 @@ const CourseContent = ({ course_id, user }) => { // Changed courseId to course_i
           <h2>{displayCourseName}</h2>
         </Col>
         <Col xs="auto">
-          <Button variant="primary" onClick={handleShowAddModal}>
-            + Add Content
-          </Button>
+          {user && user.role == 'teacher' && (
+            <Button variant="primary" onClick={handleShowAddModal}>
+              + Add Content
+            </Button>
+          )}
         </Col>
       </Row>
 

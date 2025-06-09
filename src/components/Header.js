@@ -28,7 +28,7 @@ function Header({ functionList, setActiveComponent, isLoggedIn, user, logout, us
   return (
     <Navbar bg="dark" variant="dark" expand="lg" fixed="top">
       <Container>
-        <Navbar.Brand href="#">
+        <Navbar.Brand onClick={() => setActiveComponent('Component1')} style={{ cursor: 'pointer' }}>
           <img
             src="logo.png"
             alt="Logo"

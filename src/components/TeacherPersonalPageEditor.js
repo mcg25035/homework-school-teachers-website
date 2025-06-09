@@ -238,7 +238,7 @@ function TeacherPersonalPageEditor() {
     setIsGenerating(true);
     setAiResult(null); // Clear previous results
     try {
-      const response = await fetch('/api/ai_generate.php', {
+      const response = await fetch('/~D1210270/api/ai_generate.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

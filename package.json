@@ -43,7 +43,7 @@
     ]
   },
   "proxy": "http://node.fcu.mcloudtw.com/~D1210270",
-  
+  "homepage": "/~D1210270/frontend/",
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
